@@ -51,7 +51,19 @@ git push -u origin main
 - Name：`GOOGLE_SERVICE_ACCOUNT_KEY`
 - Value：您的 Google 服務帳號 JSON 金鑰（整個 JSON 內容）
 
-### Firebase 環境變數（如果有使用）
+### Cloudinary 環境變數（照片上傳功能）
+- Name：`CLOUDINARY_CLOUD_NAME`
+- Value：您的 Cloudinary Cloud Name
+
+- Name：`CLOUDINARY_API_KEY`
+- Value：您的 Cloudinary API Key
+
+- Name：`CLOUDINARY_API_SECRET`
+- Value：您的 Cloudinary API Secret
+
+**📸 Cloudinary 設定：** 詳細步驟請參考 `CLOUDINARY_SETUP.md` 檔案
+
+### Firebase 環境變數（可選）
 - Name：`FIREBASE_SERVICE_ACCOUNT_KEY`
 - Value：您的 Firebase 服務帳號 JSON 金鑰
 
@@ -89,9 +101,10 @@ git push -u origin main
 
 ## 注意事項
 
-1. **照片上傳功能暫時移除**：Vercel 的 serverless 環境不適合檔案上傳，未來可考慮整合雲端儲存服務（如 Cloudinary）
+1. **照片上傳功能**：使用 Cloudinary 雲端儲存，免費方案提供 25GB 儲存空間
 2. **環境變數安全**：請確保不要在程式碼中直接放入 API 金鑰
 3. **使用限制**：Vercel 免費方案有使用限制，大量使用時可能需要升級
+4. **Cloudinary 設定**：詳細設定步驟請參考 `CLOUDINARY_SETUP.md`
 
 ## 故障排除
 

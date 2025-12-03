@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活動紀錄系統 - 存取資訊</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 600px; 
+            margin: 2rem auto; 
+            padding: 1rem;
+            background: #f8f9fa;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .url-box {
+            background: #e9ecef;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 0.5rem 0;
+        }
+        .status { 
+            padding: 0.25rem 0.5rem; 
+            border-radius: 4px; 
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        .status.local { background: #d1ecf1; color: #0c5460; }
+        .status.network { background: #d4edda; color: #155724; }
+        .status.global { background: #fff3cd; color: #856404; }
+        .step {
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-left: 3px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏥 活動紀錄系統</h1>
+    <p>失智據點活動記錄與照片管理系統</p>
+
+    <div class="card">
+        <h2>📱 目前可用的存取方式</h2>
+        
+        <div class="step">
+            <span class="status local">本機存取</span>
+            <div class="url-box">http://localhost:3000</div>
+            <p>僅限您的電腦使用</p>
+        </div>
+
+        <div class="step">
+            <span class="status network">區域網路</span>
+            <div class="url-box">http://172.20.10.10:3000</div>
+            <p>同一WiFi下的手機、平板都可使用</p>
+        </div>
+
+        <div class="step">
+            <span class="status global">全球存取 (待設定)</span>
+            <div class="url-box">需要設定Ngrok或雲端部署</div>
+            <p>任何地方都可以存取，可安裝為手機App</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>🔧 立即讓其他人使用的方法</h3>
+        <div class="step">
+            <strong>方法一：手機熱點</strong>
+            <ol>
+                <li>開啟您的手機熱點</li>
+                <li>讓其他人連接到您的熱點</li>
+                <li>分享網址：<code>http://172.20.10.10:3000</code></li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📱 安裝為手機App (PWA)</h3>
+        <div class="step">
+            <strong>iPhone/iPad：</strong>
+            <ol>
+                <li>Safari 開啟網址</li>
+                <li>點擊分享按鈕</li>
+                <li>選擇「加入主畫面」</li>
+            </ol>
+        </div>
+        <div class="step">
+            <strong>Android：</strong>
+            <ol>
+                <li>Chrome 開啟網址</li>
+                <li>點擊選單（⋮）</li>
+                <li>選擇「安裝應用程式」</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>✨ 系統功能</h3>
+        <ul>
+            <li>📝 活動記錄表單（支援多位參與者個別評分）</li>
+            <li>📷 照片上傳（最多4張，自動縮圖）</li>
+            <li>📊 活動列表與統計分析</li>
+            <li>💾 自動備份至Google Sheets</li>
+            <li>📱 響應式設計，手機平板都好用</li>
+        </ul>
+    </div>
+
+    <script>
+        // 自動檢測網路狀態
+        function checkConnectivity() {
+            const localUrl = 'http://localhost:3001/api/activities';
+            fetch(localUrl)
+                .then(() => {
+                    document.querySelector('.status.local').innerHTML = '✅ 本機運行中';
+                })
+                .catch(() => {
+                    document.querySelector('.status.local').innerHTML = '❌ 本機未啟動';
+                });
+        }
+        
+        // 頁面載入時檢查
+        checkConnectivity();
+        
+        // 每10秒檢查一次
+        setInterval(checkConnectivity, 10000);
+    </script>
+</body>
+</html>

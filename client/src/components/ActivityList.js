@@ -177,15 +177,15 @@ function ActivityList() {
                   )}
 
                   {/* 活動照片 */}
-                  {/* 照片功能暫時停用 - Vercel 不支援檔案上傳 */}
-                  {false && activity.photos && activity.photos.length > 0 && (
+                  {/* 照片顯示 - 支援 Cloudinary */}
+                  {activity.photos && activity.photos.length > 0 && (
                     <div className="mb-3">
                       <small className="text-muted d-block mb-2">活動照片：</small>
                       <div className="row">
                         {activity.photos.slice(0, 2).map((photo, photoIndex) => (
                           <div key={photoIndex} className="col-6">
                             <img 
-                              src={`http://localhost:3001${photo}`}
+                              src={photo}
                               alt={`活動照片 ${photoIndex + 1}`}
                               className="img-fluid rounded border mb-1"
                               style={{ 
@@ -194,7 +194,7 @@ function ActivityList() {
                                 objectFit: 'cover',
                                 cursor: 'pointer'
                               }}
-                              onClick={() => window.open(`http://localhost:3001${photo}`, '_blank')}
+                              onClick={() => window.open(photo, '_blank')}
                             />
                           </div>
                         ))}

@@ -114,14 +114,26 @@ function ActivityForm() {
     }
 
     try {
-      // 簡化版本：僅提交 JSON 資料（Vercel 不支援檔案上傳）
-      const response = await axios.post(`${API_BASE_URL}/api/activity`, {
-        ...formData,
-        photos: [] // 暫時移除照片功能
+      // 使用 FormData 支援照片上傳
+      const formDataToSend = new FormData();
+      
+      // 添加活動資料
+      formDataToSend.append('data', JSON.stringify(formData));
+      
+      // 添加照片檔案
+      photos.forEach((photo) => {
+        formDataToSend.append('photos', photo);
+      });
+
+      const response = await axios.post(`${API_BASE_URL}/api/activity`, formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
       
       if (response.data.success) {
-        alert('活動紀錄新增成功！');
+        const successMessage = `活動紀錄新增成功！\n參與者: ${response.data.participantCount} 位${response.data.photoCount ? `\n照片: ${response.data.photoCount} 張已上傳` : ''}`;
+        alert(successMessage);
         navigate('/');
       } else {
         setError('新增失敗，請稍後再試');
@@ -298,8 +310,7 @@ function ActivityForm() {
                 ))}
               </div>
 
-              {/* 照片上傳區域 - 暫時停用 */}
-              {false && (
+              {/* 照片上傳區域 */}
               <div className="mb-3">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <label className="form-label mb-0">
@@ -358,7 +369,6 @@ function ActivityForm() {
                   支援 JPEG、PNG、GIF、WebP 格式，單一檔案最大 5MB
                 </small>
               </div>
-              )}
 
               <div className="mb-3">
                 <label htmlFor="special" className="form-label">特殊狀況</label>

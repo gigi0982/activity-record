@@ -1,10 +1,29 @@
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
 const path = require('path');
 const { google } = require('googleapis');
 const admin = require('firebase-admin');
+const { uploadBufferToCloudinary } = require('../config/cloudinary');
 
 const app = express();
+
+// 設定 multer 使用記憶體儲存（適用於 Vercel serverless）
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB 限制
+  },
+  fileFilter: (req, file, cb) => {
+    // 檢查檔案類型
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('不支援的檔案格式。請使用 JPEG、PNG、GIF 或 WebP 格式。'));
+    }
+  }
+});
 
 // 中介軟體
 app.use(cors());
@@ -126,8 +145,93 @@ async function writeToFirestore(activityData) {
 
 // API 路由
 
-// 新增活動記錄 API (簡化版，不支援檔案上傳在 Vercel)
-app.post('/api/activity', async (req, res) => {
+// 新增活動記錄 API（支援照片上傳）
+app.post('/api/activity', upload.array('photos', 4), async (req, res) => {
+  try {
+    let activityData;
+    
+    // 解析活動資料
+    if (req.body.data) {
+      // FormData 格式（有檔案上傳）
+      activityData = JSON.parse(req.body.data);
+    } else {
+      // 純 JSON 格式（無檔案上傳）
+      activityData = req.body;
+    }
+
+    // 資料驗證
+    const requiredFields = ['date', 'purpose', 'topic', 'participants'];
+    for (const field of requiredFields) {
+      if (!activityData[field]) {
+        return res.status(400).json({ error: `缺少必要欄位: ${field}` });
+      }
+    }
+
+    // 驗證參與者資料
+    if (!Array.isArray(activityData.participants) || activityData.participants.length === 0) {
+      return res.status(400).json({ error: '至少需要一位參與者' });
+    }
+
+    // 上傳照片到 Cloudinary
+    let photoUrls = [];
+    if (req.files && req.files.length > 0) {
+      try {
+        const uploadPromises = req.files.map(file => 
+          uploadBufferToCloudinary(file.buffer, file.originalname)
+        );
+        const uploadResults = await Promise.all(uploadPromises);
+        photoUrls = uploadResults.map(result => result.secure_url);
+        console.log(`成功上傳 ${photoUrls.length} 張照片到 Cloudinary`);
+      } catch (uploadError) {
+        console.error('照片上傳錯誤:', uploadError);
+        // 照片上傳失敗不應該阻止記錄保存
+        photoUrls = [];
+      }
+    }
+
+    // 將照片 URL 加入活動資料
+    activityData.photos = photoUrls;
+
+    // 驗證每位參與者的分數範圍 (1-5)
+    for (let i = 0; i < activityData.participants.length; i++) {
+      const participant = activityData.participants[i];
+      if (!participant.name) {
+        return res.status(400).json({ error: `第 ${i + 1} 位參與者缺少姓名` });
+      }
+    }
+
+    // 初始化服務
+    await initializeGoogleSheets();
+    await initializeFirebase();
+
+    // 嘗試寫入兩個資料庫
+    const sheetResult = await writeToGoogleSheet(activityData);
+    const firestoreResult = await writeToFirestore(activityData);
+
+    if (!sheetResult && !firestoreResult) {
+      return res.status(500).json({ error: '資料儲存失敗，請稍後再試' });
+    }
+
+    res.json({
+      success: true,
+      message: '活動紀錄新增成功',
+      participantCount: activityData.participants.length,
+      photoCount: photoUrls.length,
+      sheetWritten: !!sheetResult,
+      firestoreWritten: !!firestoreResult
+    });
+
+  } catch (error) {
+    console.error('新增活動紀錄錯誤:', error);
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: '檔案大小超過 5MB 限制' });
+    }
+    res.status(500).json({ error: '伺服器錯誤' });
+  }
+});
+
+// 新增照片上傳 API (簡化版，不支援檔案上傳在 Vercel)
+app.post('/api/activity-simple', async (req, res) => {
   try {
     const activityData = req.body;
 

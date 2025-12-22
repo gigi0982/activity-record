@@ -58,12 +58,12 @@ async function initializeGoogleSheets() {
     // 檢查是否為測試環境
     const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
     const testKeyContent = require(keyFile);
-    
+
     if (testKeyContent.project_id === 'test-project') {
       console.log('Google Sheets API 測試模式 - 跳過真實初始化');
       return;
     }
-    
+
     auth = new google.auth.GoogleAuth({
       keyFile: keyFile,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -82,13 +82,13 @@ async function initializeFirebase() {
       // 檢查是否為測試環境
       const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
       const serviceAccount = require(serviceAccountPath);
-      
+
       // 如果是測試金鑰，跳過初始化
       if (serviceAccount.project_id === 'test-project') {
         console.log('Firebase Firestore 測試模式 - 跳過真實初始化');
         return;
       }
-      
+
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
@@ -106,7 +106,7 @@ async function writeToGoogleSheet(activityData) {
   try {
     const authClient = await auth.getClient();
     const values = [];
-    
+
     // 為每位參與者建立一行資料
     activityData.participants.forEach(participant => {
       values.push([
@@ -181,7 +181,7 @@ app.post('/api/activity', upload.array('photos', 4), async (req, res) => {
     }
 
     // 處理上傳的照片檔案路徑
-    const photoUrls = uploadedFiles.map(file => `/uploads/${file.filename}`);
+    const photoUrls = uploadedFiles.map(file => `/uploads/photos/${file.filename}`);
     activityData.photos = photoUrls;
 
     // 驗證每位參與者的分數範圍 (1-5)
@@ -195,8 +195,8 @@ app.post('/api/activity', upload.array('photos', 4), async (req, res) => {
       for (const field of scoreFields) {
         const score = parseInt(participant[field]);
         if (isNaN(score) || score < 1 || score > 5) {
-          return res.status(400).json({ 
-            error: `${participant.name} 的 ${field} 分數必須為 1-5 之間的數字` 
+          return res.status(400).json({
+            error: `${participant.name} 的 ${field} 分數必須為 1-5 之間的數字`
           });
         }
       }
@@ -344,7 +344,7 @@ app.get('/api/stats', async (req, res) => {
           totalAttention: 0
         };
       }
-      
+
       monthlyStats[month].count++;
 
       if (activity.participants) {
@@ -381,6 +381,407 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// 取得長者名單（從 Google Sheets）
+app.get('/api/elders', async (req, res) => {
+  try {
+    if (!auth) {
+      // 測試模式：返回範例長者名單
+      const testElders = [
+        { id: 1, name: '吳王素香' },
+        { id: 2, name: '彭李瑞月' },
+        { id: 3, name: '賴葉玉美' },
+        { id: 4, name: '黃張美' },
+        { id: 5, name: '曹阿明' },
+        { id: 6, name: '黃陳阿雪' },
+        { id: 7, name: '黃素蘭' },
+        { id: 8, name: '李季錦' },
+        { id: 9, name: '溫素花' },
+        { id: 10, name: '郭田水' },
+        { id: 11, name: '張薇芳' },
+        { id: 12, name: '羅林美惠' },
+        { id: 13, name: '游吳阿守' },
+        { id: 14, name: '陳羅素玉' },
+        { id: 15, name: '吳阿塗' },
+        { id: 16, name: '楊美麗' },
+        { id: 17, name: '王諶梅子' },
+        { id: 18, name: '吳麗紅' },
+        { id: 19, name: '林明珠' },
+        { id: 20, name: '林維新' },
+        { id: 21, name: '游進煌' }
+      ];
+      return res.json(testElders);
+    }
+
+    // 正式模式：從 Google Sheets 讀取長者名單
+    const authClient = await auth.getClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      range: '長者名單!A:A', // 假設長者名單在第一個工作表的 A 欄
+      auth: authClient,
+    });
+
+    const rows = response.data.values || [];
+    // 跳過標題列，轉換成物件格式
+    const elders = rows.slice(1).map((row, index) => ({
+      id: index + 1,
+      name: row[0] || ''
+    })).filter(elder => elder.name.trim() !== '');
+
+    res.json(elders);
+  } catch (error) {
+    console.error('取得長者名單錯誤:', error);
+    res.status(500).json({ error: '無法取得長者名單' });
+  }
+});
+
+// 取得季度統計報表
+app.get('/api/stats/quarterly', async (req, res) => {
+  try {
+    const { year, quarter } = req.query;
+    const currentYear = year || new Date().getFullYear();
+    const currentQuarter = quarter || Math.ceil((new Date().getMonth() + 1) / 3);
+
+    // 計算季度的月份範圍
+    const startMonth = (currentQuarter - 1) * 3 + 1;
+    const endMonth = currentQuarter * 3;
+    const startDate = `${currentYear}-${String(startMonth).padStart(2, '0')}-01`;
+    const endDate = `${currentYear}-${String(endMonth).padStart(2, '0')}-31`;
+
+    if (!db) {
+      // 測試模式：返回範例季度統計資料
+      const testQuarterlyStats = {
+        year: currentYear,
+        quarter: currentQuarter,
+        period: `${currentYear} Q${currentQuarter}`,
+        totalActivities: 24,
+        elders: [
+          { id: 1, name: '吳王素香', participationCount: 12, avgFocus: 4.2, avgInteraction: 4.5, avgAttention: 3.8, trend: 'up' },
+          { id: 2, name: '彭李瑞月', participationCount: 10, avgFocus: 3.5, avgInteraction: 3.8, avgAttention: 3.2, trend: 'stable' },
+          { id: 3, name: '賴葉玉美', participationCount: 11, avgFocus: 4.0, avgInteraction: 4.2, avgAttention: 3.5, trend: 'up' },
+          { id: 4, name: '黃張美', participationCount: 8, avgFocus: 3.2, avgInteraction: 3.5, avgAttention: 3.0, trend: 'stable' },
+          { id: 5, name: '曹阿明', participationCount: 8, avgFocus: 2.8, avgInteraction: 3.0, avgAttention: 2.5, trend: 'down', needsAttention: true },
+          { id: 6, name: '黃陳阿雪', participationCount: 9, avgFocus: 3.8, avgInteraction: 4.0, avgAttention: 3.5, trend: 'up' },
+          { id: 7, name: '黃素蘭', participationCount: 7, avgFocus: 3.5, avgInteraction: 3.2, avgAttention: 3.0, trend: 'stable' },
+          { id: 8, name: '李季錦', participationCount: 6, avgFocus: 3.0, avgInteraction: 3.5, avgAttention: 2.8, trend: 'down', needsAttention: true }
+        ]
+      };
+      return res.json(testQuarterlyStats);
+    }
+
+    // 正式模式：從 Firestore 取得資料
+    const snapshot = await db.collection('activities')
+      .where('date', '>=', startDate)
+      .where('date', '<=', endDate)
+      .get();
+
+    const elderStats = {};
+    let totalActivities = 0;
+
+    snapshot.forEach(doc => {
+      const activity = doc.data();
+      totalActivities++;
+
+      if (activity.participants) {
+        activity.participants.forEach(p => {
+          const key = p.name;
+          if (!elderStats[key]) {
+            elderStats[key] = {
+              name: p.name,
+              participationCount: 0,
+              totalFocus: 0,
+              totalInteraction: 0,
+              totalAttention: 0
+            };
+          }
+          elderStats[key].participationCount++;
+          elderStats[key].totalFocus += parseInt(p.focus) || 0;
+          elderStats[key].totalInteraction += parseInt(p.interaction) || 0;
+          elderStats[key].totalAttention += parseInt(p.attention) || 0;
+        });
+      }
+    });
+
+    const elders = Object.values(elderStats).map((elder, index) => ({
+      id: index + 1,
+      name: elder.name,
+      participationCount: elder.participationCount,
+      avgFocus: (elder.totalFocus / elder.participationCount).toFixed(1),
+      avgInteraction: (elder.totalInteraction / elder.participationCount).toFixed(1),
+      avgAttention: (elder.totalAttention / elder.participationCount).toFixed(1),
+      trend: 'stable',
+      needsAttention: (elder.totalFocus / elder.participationCount) < 3 ||
+        (elder.totalAttention / elder.participationCount) < 3
+    }));
+
+    res.json({
+      year: currentYear,
+      quarter: currentQuarter,
+      period: `${currentYear} Q${currentQuarter}`,
+      totalActivities,
+      elders
+    });
+  } catch (error) {
+    console.error('取得季度統計錯誤:', error);
+    res.status(500).json({ error: '無法取得季度統計' });
+  }
+});
+
+// 取得單一長者歷史趨勢
+app.get('/api/stats/elder/:name', async (req, res) => {
+  try {
+    const elderName = decodeURIComponent(req.params.name);
+
+    if (!db) {
+      // 測試模式：返回範例個人趨勢資料
+      const testElderStats = {
+        name: elderName,
+        quarters: [
+          { period: '2024-Q1', avgFocus: 3.2, avgInteraction: 3.5, avgAttention: 3.0, participationCount: 10 },
+          { period: '2024-Q2', avgFocus: 3.5, avgInteraction: 3.8, avgAttention: 3.2, participationCount: 11 },
+          { period: '2024-Q3', avgFocus: 3.8, avgInteraction: 4.0, avgAttention: 3.5, participationCount: 12 },
+          { period: '2024-Q4', avgFocus: 4.2, avgInteraction: 4.5, avgAttention: 3.8, participationCount: 12 }
+        ],
+        overallTrend: 'up',
+        recentNotes: [
+          { date: '2024-12-15', note: '今日表現特別投入' },
+          { date: '2024-12-10', note: '與其他長者互動良好' }
+        ]
+      };
+      return res.json(testElderStats);
+    }
+
+    // 正式模式：從 Firestore 取得歷史資料
+    const snapshot = await db.collection('activities')
+      .orderBy('date', 'asc')
+      .get();
+
+    const quarterlyData = {};
+    const recentNotes = [];
+
+    snapshot.forEach(doc => {
+      const activity = doc.data();
+      if (activity.participants) {
+        const participant = activity.participants.find(p => p.name === elderName);
+        if (participant) {
+          const date = activity.date;
+          const quarter = `${date.substring(0, 4)}-Q${Math.ceil(parseInt(date.substring(5, 7)) / 3)}`;
+
+          if (!quarterlyData[quarter]) {
+            quarterlyData[quarter] = {
+              totalFocus: 0,
+              totalInteraction: 0,
+              totalAttention: 0,
+              count: 0
+            };
+          }
+          quarterlyData[quarter].totalFocus += parseInt(participant.focus) || 0;
+          quarterlyData[quarter].totalInteraction += parseInt(participant.interaction) || 0;
+          quarterlyData[quarter].totalAttention += parseInt(participant.attention) || 0;
+          quarterlyData[quarter].count++;
+
+          if (participant.notes) {
+            recentNotes.push({ date: activity.date, note: participant.notes });
+          }
+        }
+      }
+    });
+
+    const quarters = Object.entries(quarterlyData).map(([period, data]) => ({
+      period,
+      avgFocus: (data.totalFocus / data.count).toFixed(1),
+      avgInteraction: (data.totalInteraction / data.count).toFixed(1),
+      avgAttention: (data.totalAttention / data.count).toFixed(1),
+      participationCount: data.count
+    }));
+
+    res.json({
+      name: elderName,
+      quarters,
+      overallTrend: 'stable',
+      recentNotes: recentNotes.slice(-5)
+    });
+  } catch (error) {
+    console.error('取得長者趨勢錯誤:', error);
+    res.status(500).json({ error: '無法取得長者趨勢' });
+  }
+});
+
+// ========== 會議記錄 API ==========
+
+// 測試用會議資料
+let testMeetings = [
+  {
+    id: 'meeting_001',
+    date: '2024-12-15',
+    quarter: '2024-Q4',
+    title: '2024 Q4 季度檢討會議',
+    attendees: ['主任', '社工', '照服員'],
+    discussions: [
+      { elderId: 5, elderName: '曹阿明', issue: '注意力持續下降', suggestion: '調整座位至前排' },
+      { elderId: 8, elderName: '李季錦', issue: '參與度降低', suggestion: '安排其偏好的手作活動' }
+    ],
+    decisions: [
+      { id: 1, content: '下季增加手作類活動（每月至少2次）', assignee: '社工', status: 'pending' },
+      { id: 2, content: '曹阿明安排前排座位', assignee: '照服員', status: 'completed' }
+    ],
+    createdAt: new Date('2024-12-15')
+  }
+];
+
+// 取得會議列表
+app.get('/api/meetings', async (req, res) => {
+  try {
+    if (!db) {
+      return res.json(testMeetings);
+    }
+    const snapshot = await db.collection('meetings').orderBy('date', 'desc').get();
+    const meetings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(meetings);
+  } catch (error) {
+    console.error('取得會議列表錯誤:', error);
+    res.status(500).json({ error: '無法取得會議列表' });
+  }
+});
+
+// 取得單一會議
+app.get('/api/meetings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!db) {
+      const meeting = testMeetings.find(m => m.id === id);
+      return meeting ? res.json(meeting) : res.status(404).json({ error: '會議不存在' });
+    }
+    const doc = await db.collection('meetings').doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: '會議不存在' });
+    res.json({ id: doc.id, ...doc.data() });
+  } catch (error) {
+    console.error('取得會議錯誤:', error);
+    res.status(500).json({ error: '無法取得會議' });
+  }
+});
+
+// 新增會議
+app.post('/api/meetings', async (req, res) => {
+  try {
+    const meetingData = {
+      ...req.body,
+      createdAt: new Date()
+    };
+    if (!db) {
+      meetingData.id = `meeting_${Date.now()}`;
+      testMeetings.unshift(meetingData);
+      return res.json({ success: true, id: meetingData.id });
+    }
+    const docRef = await db.collection('meetings').add(meetingData);
+    res.json({ success: true, id: docRef.id });
+  } catch (error) {
+    console.error('新增會議錯誤:', error);
+    res.status(500).json({ error: '無法新增會議' });
+  }
+});
+
+// 更新會議決議狀態
+app.put('/api/meetings/:id/decisions/:decisionId', async (req, res) => {
+  try {
+    const { id, decisionId } = req.params;
+    const { status } = req.body;
+    if (!db) {
+      const meeting = testMeetings.find(m => m.id === id);
+      if (meeting) {
+        const decision = meeting.decisions.find(d => d.id === parseInt(decisionId));
+        if (decision) decision.status = status;
+      }
+      return res.json({ success: true });
+    }
+    // Firestore 更新邏輯...
+    res.json({ success: true });
+  } catch (error) {
+    console.error('更新決議狀態錯誤:', error);
+    res.status(500).json({ error: '無法更新決議狀態' });
+  }
+});
+
+// ========== 活動規劃 API ==========
+
+let testPlans = [
+  {
+    id: 'plan_2025Q1',
+    quarter: '2025-Q1',
+    title: '2025 第一季活動規劃',
+    activities: [
+      { month: 1, topic: '新春活動', count: 2, notes: '包含圍爐活動' },
+      { month: 1, topic: '懷舊歌曲', count: 2, notes: '' },
+      { month: 2, topic: '手工藝製作', count: 3, notes: '配合元宵節主題' },
+      { month: 2, topic: '認知訓練', count: 2, notes: '' },
+      { month: 3, topic: '園藝活動', count: 2, notes: '春季種植' },
+      { month: 3, topic: '音樂律動', count: 2, notes: '' }
+    ],
+    specialNotes: [
+      { elderId: 5, elderName: '曹阿明', note: '安排前排座位', fromMeeting: 'meeting_001' },
+      { elderName: '全體', note: '增加手作類活動頻率', fromMeeting: 'meeting_001' }
+    ],
+    createdAt: new Date()
+  }
+];
+
+// 取得活動規劃列表
+app.get('/api/plans', async (req, res) => {
+  try {
+    if (!db) {
+      return res.json(testPlans);
+    }
+    const snapshot = await db.collection('plans').orderBy('quarter', 'desc').get();
+    const plans = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(plans);
+  } catch (error) {
+    console.error('取得規劃列表錯誤:', error);
+    res.status(500).json({ error: '無法取得規劃列表' });
+  }
+});
+
+// 取得單一規劃
+app.get('/api/plans/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!db) {
+      const plan = testPlans.find(p => p.id === id);
+      return plan ? res.json(plan) : res.status(404).json({ error: '規劃不存在' });
+    }
+    const doc = await db.collection('plans').doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: '規劃不存在' });
+    res.json({ id: doc.id, ...doc.data() });
+  } catch (error) {
+    console.error('取得規劃錯誤:', error);
+    res.status(500).json({ error: '無法取得規劃' });
+  }
+});
+
+// 新增/更新活動規劃
+app.post('/api/plans', async (req, res) => {
+  try {
+    const planData = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+    if (!db) {
+      const existingIdx = testPlans.findIndex(p => p.quarter === planData.quarter);
+      if (existingIdx >= 0) {
+        testPlans[existingIdx] = { ...testPlans[existingIdx], ...planData };
+      } else {
+        planData.id = `plan_${planData.quarter}`;
+        planData.createdAt = new Date();
+        testPlans.unshift(planData);
+      }
+      return res.json({ success: true, id: planData.id || planData.quarter });
+    }
+    const docRef = await db.collection('plans').add(planData);
+    res.json({ success: true, id: docRef.id });
+  } catch (error) {
+    console.error('儲存規劃錯誤:', error);
+    res.status(500).json({ error: '無法儲存規劃' });
+  }
+});
+
 // 健康檢查
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -390,11 +791,11 @@ app.get('/api/health', (req, res) => {
 async function startServer() {
   await initializeFirebase();
   await initializeGoogleSheets();
-  
+
   app.listen(port, '0.0.0.0', () => {
     console.log(`伺服器運行於 http://localhost:${port}`);
     console.log(`區域網路存取： http://0.0.0.0:${port}`);
-    
+
     // 嘗試顯示實際IP位址
     const os = require('os');
     const interfaces = os.networkInterfaces();

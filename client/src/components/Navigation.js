@@ -41,10 +41,26 @@ function Navigation() {
             </li>
             <li className="nav-item">
               <Link
-                className={`nav-link ${location.pathname === '/stats' ? 'active' : ''}`}
-                to="/stats"
+                className={`nav-link ${location.pathname === '/quarterly' ? 'active' : ''}`}
+                to="/quarterly"
               >
-                統計分析
+                📊 季度報表
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
+                className={`nav-link ${location.pathname === '/meetings' ? 'active' : ''}`}
+                to="/meetings"
+              >
+                📝 會議記錄
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
+                className={`nav-link ${location.pathname === '/plans' ? 'active' : ''}`}
+                to="/plans"
+              >
+                📅 活動規劃
               </Link>
             </li>
           </ul>

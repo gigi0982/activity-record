@@ -1,11 +1,4 @@
-const express = require('express');
-const cors = require('cors');
-
-const app = express();
-
-// 中介軟體
-app.use(cors());
-app.use(express.json());
+// Vercel Serverless API 函數
 
 // 測試模式資料
 const testActivities = [
@@ -21,7 +14,7 @@ const testActivities = [
         ],
         special: '王阿姨特別投入',
         discussion: '大家都很喜歡這個活動',
-        createdAt: new Date()
+        createdAt: new Date().toISOString()
     },
     {
         id: 'test-2',
@@ -35,51 +28,63 @@ const testActivities = [
         ],
         special: '',
         discussion: '作品完成度很高',
-        createdAt: new Date()
+        createdAt: new Date().toISOString()
     }
 ];
 
-// API 路由
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', message: '活動紀錄系統 API 運行中' });
-});
+export default function handler(req, res) {
+    // 設定 CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-app.get('/api/activities', (req, res) => {
-    res.json(testActivities);
-});
-
-app.post('/api/activity', (req, res) => {
-    const activityData = req.body;
-
-    // 簡單驗證
-    if (!activityData.date || !activityData.purpose || !activityData.topic) {
-        return res.status(400).json({ error: '缺少必要欄位' });
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
-    res.json({
-        success: true,
-        message: '活動紀錄新增成功（測試模式）',
-        participantCount: activityData.participants?.length || 0
-    });
-});
+    const { url, method } = req;
 
-app.get('/api/stats', (req, res) => {
-    const testStats = [
-        {
-            month: '2024-12',
-            count: 2,
-            participantCount: 6,
-            avgFocus: '3.83',
-            avgInteraction: '4.33',
-            avgAttention: '3.17'
+    // 路由處理
+    if (url === '/api/activities' || url === '/api/activities/') {
+        return res.status(200).json(testActivities);
+    }
+
+    if (url === '/api/health' || url === '/api/health/') {
+        return res.status(200).json({ status: 'OK', message: '活動紀錄系統 API 運行中' });
+    }
+
+    if ((url === '/api/activity' || url === '/api/activity/') && method === 'POST') {
+        const activityData = req.body;
+
+        if (!activityData.date || !activityData.purpose || !activityData.topic) {
+            return res.status(400).json({ error: '缺少必要欄位' });
         }
-    ];
-    res.json(testStats);
-});
 
-// 預設路由處理
-app.all('*', (req, res) => {
-    res.status(404).json({ error: 'API endpoint not found' });
-});
+        return res.status(200).json({
+            success: true,
+            message: '活動紀錄新增成功（測試模式）',
+            participantCount: activityData.participants?.length || 0
+        });
+    }
 
-module.exports = app;
+    if (url === '/api/stats' || url === '/api/stats/') {
+        const testStats = [
+            {
+                month: '2024-12',
+                count: 2,
+                participantCount: 6,
+                avgFocus: '3.83',
+                avgInteraction: '4.33',
+                avgAttention: '3.17'
+            }
+        ];
+        return res.status(200).json(testStats);
+    }
+
+    // 預設回應
+    return res.status(200).json({
+        status: 'OK',
+        message: '活動紀錄系統 API',
+        path: url
+    });
+}

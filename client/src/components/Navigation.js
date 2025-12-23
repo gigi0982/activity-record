@@ -63,6 +63,14 @@ function Navigation() {
                 📅 活動規劃
               </Link>
             </li>
+            <li className="nav-item">
+              <Link
+                className={`nav-link ${location.pathname === '/evaluation' ? 'active' : ''}`}
+                to="/evaluation"
+              >
+                📋 評鑑報告
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

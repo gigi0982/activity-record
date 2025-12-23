@@ -9,6 +9,7 @@ import ElderProfile from './components/ElderProfile';
 import MeetingList from './components/MeetingList';
 import MeetingForm from './components/MeetingForm';
 import PlanEditor from './components/PlanEditor';
+import EvaluationReport from './components/EvaluationReport';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/meetings/new" element={<MeetingForm />} />
           <Route path="/meetings/:id" element={<MeetingForm />} />
           <Route path="/plans" element={<PlanEditor />} />
+          <Route path="/evaluation" element={<EvaluationReport />} />
         </Routes>
       </div>
     </div>

@@ -7,6 +7,8 @@ function MeetingForm() {
     const navigate = useNavigate();
     const { id } = useParams();
     const [elderList, setElderList] = useState([]);
+    const [activities, setActivities] = useState([]);
+    const [selectedActivities, setSelectedActivities] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
@@ -14,7 +16,8 @@ function MeetingForm() {
         title: '',
         attendees: ['主任', '社工', '照服員'],
         discussions: [],
-        decisions: []
+        decisions: [],
+        linkedActivities: []
     });
 
     useEffect(() => {
@@ -23,13 +26,38 @@ function MeetingForm() {
             .then(res => setElderList(res.data))
             .catch(console.error);
 
+        // 載入活動列表
+        axios.get(`${API_BASE_URL}/api/activities`)
+            .then(res => setActivities(res.data))
+            .catch(console.error);
+
         // 如果是編輯模式，載入資料
         if (id) {
             axios.get(`${API_BASE_URL}/api/meetings/${id}`)
-                .then(res => setFormData(res.data))
+                .then(res => {
+                    setFormData(res.data);
+                    setSelectedActivities(res.data.linkedActivities || []);
+                })
                 .catch(console.error);
         }
     }, [id]);
+
+    const toggleActivitySelection = (activity) => {
+        setSelectedActivities(prev => {
+            const isSelected = prev.some(a => a.id === activity.id);
+            if (isSelected) {
+                return prev.filter(a => a.id !== activity.id);
+            } else {
+                return [...prev, activity];
+            }
+        });
+        setFormData(prev => ({
+            ...prev,
+            linkedActivities: selectedActivities.some(a => a.id === activity.id)
+                ? selectedActivities.filter(a => a.id !== activity.id)
+                : [...selectedActivities, activity]
+        }));
+    };
 
     const addDiscussion = () => {
         setFormData(prev => ({
@@ -139,6 +167,70 @@ function MeetingForm() {
                                 />
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div className="card mb-4">
+                    <div className="card-header bg-info text-white">
+                        <i className="fas fa-link me-2"></i>關聯活動（可選擇要討論的活動）
+                    </div>
+                    <div className="card-body">
+                        {activities.length === 0 ? (
+                            <p className="text-muted">載入活動資料中...</p>
+                        ) : (
+                            <>
+                                <p className="text-muted mb-3">勾選要在本次會議討論的活動，將自動帶入活動統計資料</p>
+                                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                    {activities.map(activity => (
+                                        <div
+                                            key={activity.id}
+                                            className={`border rounded p-2 mb-2 ${selectedActivities.some(a => a.id === activity.id) ? 'bg-light border-primary' : ''}`}
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => toggleActivitySelection(activity)}
+                                        >
+                                            <div className="d-flex align-items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-check-input me-2"
+                                                    checked={selectedActivities.some(a => a.id === activity.id)}
+                                                    onChange={() => { }}
+                                                />
+                                                <div className="flex-grow-1">
+                                                    <strong>{activity.date}</strong> - {activity.topic}
+                                                    <span className="badge bg-secondary ms-2">{activity.purpose}</span>
+                                                </div>
+                                                <div className="text-muted small">
+                                                    參與：{activity.participants?.length || 0}人
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {selectedActivities.length > 0 && (
+                                    <div className="mt-3 p-3 bg-light rounded">
+                                        <h6 className="text-primary mb-2">📊 已選活動統計摘要</h6>
+                                        <div className="row">
+                                            <div className="col-4 text-center">
+                                                <div className="h4 text-info">{selectedActivities.length}</div>
+                                                <small className="text-muted">活動數</small>
+                                            </div>
+                                            <div className="col-4 text-center">
+                                                <div className="h4 text-success">
+                                                    {selectedActivities.reduce((sum, a) => sum + (a.participants?.length || 0), 0)}
+                                                </div>
+                                                <small className="text-muted">總參與人次</small>
+                                            </div>
+                                            <div className="col-4 text-center">
+                                                <div className="h4 text-warning">
+                                                    {(selectedActivities.reduce((sum, a) => sum + (a.participants?.length || 0), 0) / selectedActivities.length).toFixed(1)}
+                                                </div>
+                                                <small className="text-muted">平均參與</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
 

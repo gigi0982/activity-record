@@ -10,6 +10,8 @@ import MeetingList from './components/MeetingList';
 import MeetingForm from './components/MeetingForm';
 import PlanEditor from './components/PlanEditor';
 import EvaluationReport from './components/EvaluationReport';
+import QuarterlyComparison from './components/QuarterlyComparison';
+import PlanTracking from './components/PlanTracking';
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
           <Route path="/meetings/new" element={<MeetingForm />} />
           <Route path="/meetings/:id" element={<MeetingForm />} />
           <Route path="/plans" element={<PlanEditor />} />
+          <Route path="/tracking" element={<PlanTracking />} />
+          <Route path="/comparison" element={<QuarterlyComparison />} />
           <Route path="/evaluation" element={<EvaluationReport />} />
         </Routes>
       </div>

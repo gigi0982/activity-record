@@ -65,6 +65,22 @@ function Navigation() {
             </li>
             <li className="nav-item">
               <Link
+                className={`nav-link ${location.pathname === '/tracking' ? 'active' : ''}`}
+                to="/tracking"
+              >
+                ✓ 執行追蹤
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
+                className={`nav-link ${location.pathname === '/comparison' ? 'active' : ''}`}
+                to="/comparison"
+              >
+                📈 季度比較
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
                 className={`nav-link ${location.pathname === '/evaluation' ? 'active' : ''}`}
                 to="/evaluation"
               >

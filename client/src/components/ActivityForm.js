@@ -55,6 +55,26 @@ function ActivityForm() {
     setFormData(prev => ({ ...prev, participants: updatedParticipants }));
   };
 
+  // 根據能力分級取得預設評分
+  const getDefaultScore = (level) => {
+    switch (level) {
+      case 'A': return 4; // 認知功能最佳，預設4分
+      case 'B': return 3; // 尚可，預設3分
+      case 'C': return 2; // 需較多協助，預設2分
+      default: return 3;
+    }
+  };
+
+  // 分級顏色對照
+  const getLevelColor = (level) => {
+    switch (level) {
+      case 'A': return '#4CAF50'; // 綠色
+      case 'B': return '#FF9800'; // 橘色
+      case 'C': return '#f44336'; // 紅色
+      default: return '#999';
+    }
+  };
+
   // 勾選/取消勾選長者
   const toggleElder = (elder) => {
     const elderKey = `elder_${elder.id}`;
@@ -71,21 +91,26 @@ function ActivityForm() {
         participants: prev.participants.filter(p => p.elderId !== elder.id)
       }));
     } else {
-      // 勾選：新增該長者
+      // 勾選：新增該長者，根據分級設定預設評分
       setSelectedElders(prev => ({
         ...prev,
         [elderKey]: true
       }));
 
-      // 新增到 participants
+      const defaultScore = getDefaultScore(elder.level);
+
+      // 新增到 participants，含分級資訊
       setFormData(prev => ({
         ...prev,
         participants: [...prev.participants, {
           elderId: elder.id,
           name: elder.name,
-          focus: 3,
-          interaction: 3,
-          attention: 3,
+          level: elder.level,
+          levelDesc: elder.levelDesc,
+          scoreRange: elder.scoreRange,
+          focus: defaultScore,
+          interaction: defaultScore,
+          attention: defaultScore,
           notes: ''
         }]
       }));
@@ -102,12 +127,16 @@ function ActivityForm() {
       // 只新增尚未選取的
       if (!selectedElders[elderKey]) {
         newSelected[elderKey] = true;
+        const defaultScore = getDefaultScore(elder.level);
         newParticipants.push({
           elderId: elder.id,
           name: elder.name,
-          focus: 3,
-          interaction: 3,
-          attention: 3,
+          level: elder.level,
+          levelDesc: elder.levelDesc,
+          scoreRange: elder.scoreRange,
+          focus: defaultScore,
+          interaction: defaultScore,
+          attention: defaultScore,
           notes: ''
         });
       } else {
@@ -373,11 +402,23 @@ function ActivityForm() {
                               onChange={() => toggleElder(elder)}
                             />
                             <label
-                              className="form-check-label"
+                              className="form-check-label d-flex align-items-center"
                               htmlFor={`elder_${elder.id}`}
                               style={{ cursor: 'pointer' }}
                             >
                               {elder.name}
+                              {elder.level && (
+                                <span
+                                  className="badge ms-1"
+                                  style={{
+                                    backgroundColor: getLevelColor(elder.level),
+                                    fontSize: '10px',
+                                    padding: '2px 5px'
+                                  }}
+                                >
+                                  {elder.level}
+                                </span>
+                              )}
                             </label>
                           </div>
                         </div>
@@ -444,6 +485,14 @@ function ActivityForm() {
                         <h6 className="mb-0 text-primary">
                           <i className="fas fa-user me-2"></i>
                           {participant.name}
+                          {participant.level && (
+                            <span
+                              className="badge ms-2"
+                              style={{ backgroundColor: getLevelColor(participant.level) }}
+                            >
+                              {participant.level} - {participant.levelDesc}
+                            </span>
+                          )}
                           {participant.isManual && (
                             <span className="badge bg-secondary ms-2">手動新增</span>
                           )}
@@ -457,6 +506,12 @@ function ActivityForm() {
                           移除
                         </button>
                       </div>
+                      {/* 建議評分範圍提示 - 列印時隱藏 */}
+                      {participant.scoreRange && (
+                        <div className="mb-2 no-print" style={{ fontSize: '12px', color: '#666', backgroundColor: '#f8f9fa', padding: '5px 10px', borderRadius: '4px' }}>
+                          💡 <strong>系統建議：</strong>依據分級，建議評分範圍 {participant.scoreRange.min}-{participant.scoreRange.max} 分
+                        </div>
+                      )}
 
                       <div className="row">
                         <div className="col-md-3">

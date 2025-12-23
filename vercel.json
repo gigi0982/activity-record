@@ -25,10 +25,5 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "server/api/index.js": {
-      "maxDuration": 30
-    }
   }
 }

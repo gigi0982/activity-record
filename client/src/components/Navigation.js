@@ -87,14 +87,6 @@ function Navigation() {
                 📋 評鑑報告
               </Link>
             </li>
-            <li className="nav-item">
-              <Link
-                className={`nav-link ${location.pathname === '/settings' ? 'active' : ''}`}
-                to="/settings"
-              >
-                ⚙️ 系統設定
-              </Link>
-            </li>
           </ul>
         </div>
       </div>

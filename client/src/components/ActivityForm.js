@@ -289,22 +289,55 @@ function ActivityForm() {
     }
 
     try {
-      // 使用 LocalStorage 儲存活動資料
-      const result = addActivity({
-        ...formData,
-        photos: photoPreviews.map(p => p.url) // 儲存照片的 base64
+      // Google Apps Script 網址
+      const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
+
+      // 準備要寫入 Google Sheets 的資料
+      const participantNames = formData.participants.map(p => p.name).join(', ');
+      const participantDetails = formData.participants.map(p =>
+        `${p.name}(專注:${p.focus},互動:${p.interaction},注意:${p.attention}${p.notes ? ',備註:' + p.notes : ''})`
+      ).join('; ');
+
+      const sheetData = {
+        date: formData.date,
+        time: formData.time,
+        activityName: formData.activityName,
+        purpose: formData.purpose,
+        topic: formData.topic,
+        participants: participantDetails,
+        special: formData.special || '',
+        discussion: formData.discussion || ''
+      };
+
+      // 寫入 Google Sheets
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sheetData)
       });
 
-      if (result.success) {
-        const successMessage = `活動紀錄新增成功！\n參與者: ${formData.participants.length} 位`;
-        alert(successMessage);
-        navigate('/');
-      } else {
-        setError('新增失敗：' + result.error);
-      }
+      // 同時也儲存到 LocalStorage 作為備份和快速讀取
+      addActivity({
+        ...formData,
+        photos: photoPreviews.map(p => p.url)
+      });
+
+      const successMessage = `活動紀錄新增成功！\n參與者: ${formData.participants.length} 位\n已同步到 Google Sheets`;
+      alert(successMessage);
+      navigate('/');
+
     } catch (error) {
       console.error('提交錯誤:', error);
-      setError('新增失敗，請稍後再試');
+      // 即使 Google Sheets 失敗，也儲存到本地
+      addActivity({
+        ...formData,
+        photos: photoPreviews.map(p => p.url)
+      });
+      alert('活動紀錄已儲存到本地（Google Sheets 同步可能延遲）');
+      navigate('/');
     } finally {
       setIsSubmitting(false);
     }

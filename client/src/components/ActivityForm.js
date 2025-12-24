@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
+import { addActivity } from '../utils/storage';
 
 function ActivityForm() {
   const navigate = useNavigate();
@@ -267,33 +268,22 @@ function ActivityForm() {
     }
 
     try {
-      // 使用 FormData 支援照片上傳
-      const formDataToSend = new FormData();
-
-      // 添加活動資料
-      formDataToSend.append('data', JSON.stringify(formData));
-
-      // 添加照片檔案
-      photos.forEach((photo) => {
-        formDataToSend.append('photos', photo);
+      // 使用 LocalStorage 儲存活動資料
+      const result = addActivity({
+        ...formData,
+        photos: photoPreviews.map(p => p.url) // 儲存照片的 base64
       });
 
-      const response = await axios.post(`${API_BASE_URL}/api/activity`, formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      if (response.data.success) {
-        const successMessage = `活動紀錄新增成功！\n參與者: ${response.data.participantCount} 位${response.data.photoCount ? `\n照片: ${response.data.photoCount} 張已上傳` : ''}`;
+      if (result.success) {
+        const successMessage = `活動紀錄新增成功！\n參與者: ${formData.participants.length} 位`;
         alert(successMessage);
         navigate('/');
       } else {
-        setError('新增失敗，請稍後再試');
+        setError('新增失敗：' + result.error);
       }
     } catch (error) {
       console.error('提交錯誤:', error);
-      setError(error.response?.data?.error || '新增失敗，請稍後再試');
+      setError('新增失敗，請稍後再試');
     } finally {
       setIsSubmitting(false);
     }

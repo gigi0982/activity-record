@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
+import { getActivities, initSampleData } from '../utils/storage';
 
 function ActivityList() {
   const [activities, setActivities] = useState([]);
@@ -9,13 +10,28 @@ function ActivityList() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // 初始化範例資料（如果 LocalStorage 是空的）
+    initSampleData();
     fetchActivities();
   }, []);
 
   const fetchActivities = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/activities`);
-      setActivities(response.data);
+      // 優先從 LocalStorage 讀取
+      const localActivities = getActivities();
+
+      if (localActivities.length > 0) {
+        setActivities(localActivities);
+      } else {
+        // 如果本地沒資料，嘗試從 API 取得（作為備援）
+        try {
+          const response = await axios.get(`${API_BASE_URL}/api/activities`);
+          setActivities(response.data);
+        } catch (apiError) {
+          console.log('API 不可用，使用本地資料');
+          setActivities([]);
+        }
+      }
     } catch (error) {
       console.error('取得活動列表錯誤:', error);
       setError('無法載入活動列表，請稍後再試');
@@ -92,7 +108,7 @@ function ActivityList() {
                 </div>
                 <div className="card-body">
                   <h6 className="card-title">{activity.purpose}</h6>
-                  
+
                   {activity.participants ? (
                     <>
                       <div className="mb-3">
@@ -121,7 +137,7 @@ function ActivityList() {
                           ))}
                         </div>
                       </div>
-                      
+
                       <div className="row text-center mb-3 border-top pt-2">
                         <div className="col-12 mb-2">
                           <small className="text-muted">平均分數</small>
@@ -152,7 +168,7 @@ function ActivityList() {
                       <p className="card-text">
                         <strong>參與成員：</strong>{activity.members}
                       </p>
-                      
+
                       <div className="row text-center mb-3">
                         <div className="col-4">
                           <div className={`h5 ${getScoreColor(activity.focus)}`}>
@@ -184,13 +200,13 @@ function ActivityList() {
                       <div className="row">
                         {activity.photos.slice(0, 2).map((photo, photoIndex) => (
                           <div key={photoIndex} className="col-6">
-                            <img 
+                            <img
                               src={photo}
                               alt={`活動照片 ${photoIndex + 1}`}
                               className="img-fluid rounded border mb-1"
-                              style={{ 
-                                width: '100%', 
-                                height: '80px', 
+                              style={{
+                                width: '100%',
+                                height: '80px',
                                 objectFit: 'cover',
                                 cursor: 'pointer'
                               }}

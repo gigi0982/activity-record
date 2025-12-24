@@ -8,6 +8,8 @@ function ActivityForm() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], // 預設今天日期
+    time: '', // 活動時間
+    activityName: '', // 活動名稱
     purpose: '',
     topic: '',
     participants: [],
@@ -305,7 +307,7 @@ function ActivityForm() {
 
             <form onSubmit={handleSubmit} className="activity-form">
               <div className="row">
-                <div className="col-md-6 mb-3">
+                <div className="col-md-4 mb-3">
                   <label htmlFor="date" className="form-label">活動日期 *</label>
                   <input
                     type="date"
@@ -317,6 +319,56 @@ function ActivityForm() {
                     required
                   />
                 </div>
+                <div className="col-md-4 mb-3">
+                  <label className="form-label">活動時間 *</label>
+                  <div className="d-flex gap-3">
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        name="time"
+                        id="time-morning"
+                        value="09:00-11:00"
+                        checked={formData.time === '09:00-11:00'}
+                        onChange={handleChange}
+                        required
+                      />
+                      <label className="form-check-label" htmlFor="time-morning">
+                        09:00-11:00
+                      </label>
+                    </div>
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        name="time"
+                        id="time-afternoon"
+                        value="13:30-15:30"
+                        checked={formData.time === '13:30-15:30'}
+                        onChange={handleChange}
+                      />
+                      <label className="form-check-label" htmlFor="time-afternoon">
+                        13:30-15:30
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-md-4 mb-3">
+                  <label htmlFor="activityName" className="form-label">活動名稱 *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="activityName"
+                    name="activityName"
+                    value={formData.activityName}
+                    onChange={handleChange}
+                    placeholder="例：認知訓練課程、懷舊音樂會..."
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="row">
                 <div className="col-md-6 mb-3">
                   <label htmlFor="purpose" className="form-label">活動目的 *</label>
                   <input
@@ -330,20 +382,19 @@ function ActivityForm() {
                     required
                   />
                 </div>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="topic" className="form-label">活動主題 *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="topic"
-                  name="topic"
-                  value={formData.topic}
-                  onChange={handleChange}
-                  placeholder="例：懷舊歌曲欣賞、手工藝製作..."
-                  required
-                />
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="topic" className="form-label">活動主題 *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="topic"
+                    name="topic"
+                    value={formData.topic}
+                    onChange={handleChange}
+                    placeholder="例：懷舊歌曲欣賞、手工藝製作..."
+                    required
+                  />
+                </div>
               </div>
 
               {/* 長者勾選區域 */}

@@ -27,6 +27,8 @@ function ActivityForm() {
   const [isLoadingElders, setIsLoadingElders] = useState(true);
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [manualName, setManualName] = useState('');
+  const [showPasteImport, setShowPasteImport] = useState(false);
+  const [pasteContent, setPasteContent] = useState('');
 
   // 載入長者名單
   useEffect(() => {
@@ -165,6 +167,74 @@ function ActivityForm() {
       ...prev,
       participants: prev.participants.filter(p => p.isManual)
     }));
+  };
+
+  // 從貼上內容匯入參與者
+  const importFromPaste = () => {
+    if (!pasteContent.trim()) return;
+
+    // 解析貼上的內容，支援多種格式
+    // 1. 每行一個名字
+    // 2. 逗號分隔
+    // 3. 空白分隔
+    const cleanContent = pasteContent
+      .replace(/[\t\r]/g, ' ')  // 把 tab 和換行符轉換成空白
+      .replace(/\d+/g, '')       // 移除數字（序號）
+      .replace(/[,、;；]/g, '\n'); // 把逗號、頓號轉換成換行
+
+    const names = cleanContent
+      .split('\n')
+      .map(name => name.trim())
+      .filter(name => name.length >= 2 && name.length <= 10); // 名字通常 2-10 字
+
+    let matchedCount = 0;
+    const newSelected = { ...selectedElders };
+    const newParticipants = [...formData.participants];
+
+    names.forEach(name => {
+      // 在長者名單中尋找匹配
+      const matchedElder = elderList.find(elder =>
+        elder.name === name ||
+        elder.name.includes(name) ||
+        name.includes(elder.name)
+      );
+
+      if (matchedElder) {
+        const elderKey = `elder_${matchedElder.id}`;
+        if (!newSelected[elderKey]) {
+          newSelected[elderKey] = true;
+          const defaultScore = getDefaultScore(matchedElder.level);
+          newParticipants.push({
+            elderId: matchedElder.id,
+            name: matchedElder.name,
+            level: matchedElder.level,
+            levelDesc: matchedElder.levelDesc,
+            scoreRange: matchedElder.scoreRange,
+            focus: defaultScore,
+            interaction: defaultScore,
+            attention: defaultScore,
+            notes: ''
+          });
+          matchedCount++;
+        }
+      }
+    });
+
+    setSelectedElders(newSelected);
+    setFormData(prev => ({
+      ...prev,
+      participants: newParticipants
+    }));
+
+    // 顯示結果
+    if (matchedCount > 0) {
+      alert(`成功匹配 ${matchedCount} 位長者！`);
+    } else {
+      alert('未找到匹配的長者，請確認名單格式或手動勾選');
+    }
+
+    setPasteContent('');
+    setShowPasteImport(false);
   };
 
   // 手動新增參與者（非名單上的人）
@@ -399,28 +469,71 @@ function ActivityForm() {
 
               {/* 長者勾選區域 */}
               <div className="mb-4">
-                <div className="d-flex justify-content-between align-items-center mb-2">
+                <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                   <label className="form-label mb-0">
                     <i className="fas fa-users me-2"></i>
                     選擇今日參與的長者
                   </label>
-                  <div className="btn-group btn-group-sm">
+                  <div className="d-flex gap-2 flex-wrap">
                     <button
                       type="button"
-                      className="btn btn-outline-primary"
+                      className="btn btn-outline-success btn-sm"
+                      onClick={() => setShowPasteImport(!showPasteImport)}
+                    >
+                      📋 從長照系統貼上
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
                       onClick={selectAllElders}
                     >
                       ✓ 全選
                     </button>
                     <button
                       type="button"
-                      className="btn btn-outline-secondary"
+                      className="btn btn-outline-secondary btn-sm"
                       onClick={deselectAllElders}
                     >
                       ✗ 取消全選
                     </button>
                   </div>
                 </div>
+
+                {/* 貼上匯入區塊 */}
+                {showPasteImport && (
+                  <div className="alert alert-info mb-3">
+                    <h6 className="alert-heading">
+                      <i className="fas fa-paste me-2"></i>
+                      從長照系統貼上簽到名單
+                    </h6>
+                    <p className="small mb-2">
+                      請在長照系統網頁上選取並複製今日簽到的長者名單，然後貼到下方框框：
+                    </p>
+                    <textarea
+                      className="form-control mb-2"
+                      rows="3"
+                      placeholder="將複製的名單貼在這裡...&#10;支援格式：每行一位、逗號分隔、空白分隔皆可"
+                      value={pasteContent}
+                      onChange={(e) => setPasteContent(e.target.value)}
+                    />
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={importFromPaste}
+                      >
+                        🔍 比對匯入
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => { setShowPasteImport(false); setPasteContent(''); }}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {isLoadingElders ? (
                   <div className="text-center py-3">

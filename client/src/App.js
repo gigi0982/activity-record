@@ -13,6 +13,7 @@ import PlanEditor from './components/PlanEditor';
 import EvaluationReport from './components/EvaluationReport';
 import QuarterlyComparison from './components/QuarterlyComparison';
 import PlanTracking from './components/PlanTracking';
+import SystemSettings from './components/SystemSettings';
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
           <Route path="/tracking" element={<PlanTracking />} />
           <Route path="/comparison" element={<QuarterlyComparison />} />
           <Route path="/evaluation" element={<EvaluationReport />} />
+          <Route path="/settings" element={<SystemSettings />} />
         </Routes>
       </div>
     </div>

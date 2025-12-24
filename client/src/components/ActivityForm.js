@@ -32,11 +32,23 @@ function ActivityForm() {
   useEffect(() => {
     const fetchElders = async () => {
       try {
+        // 優先從 LocalStorage 讀取
+        const savedElders = localStorage.getItem('settings_elders');
+        if (savedElders) {
+          const parsed = JSON.parse(savedElders);
+          if (parsed.length > 0) {
+            setElderList(parsed);
+            setIsLoadingElders(false);
+            return;
+          }
+        }
+
+        // LocalStorage 沒有資料，從 API 取得
         const response = await axios.get(`${API_BASE_URL}/api/elders`);
         setElderList(response.data);
       } catch (err) {
         console.error('載入長者名單失敗:', err);
-        setError('載入長者名單失敗，請稍後再試');
+        setError('載入長者名單失敗，請至「系統設定」新增長者');
       } finally {
         setIsLoadingElders(false);
       }

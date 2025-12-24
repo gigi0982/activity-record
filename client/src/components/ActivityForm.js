@@ -153,6 +153,7 @@ function ActivityForm() {
           focus: defaultScore,
           interaction: defaultScore,
           attention: defaultScore,
+          participation: defaultScore,
           notes: ''
         }]
       }));
@@ -179,6 +180,7 @@ function ActivityForm() {
           focus: defaultScore,
           interaction: defaultScore,
           attention: defaultScore,
+          participation: defaultScore,
           notes: ''
         });
       } else {
@@ -320,7 +322,7 @@ function ActivityForm() {
       // 準備要寫入 Google Sheets 的資料
       const participantNames = formData.participants.map(p => p.name).join(', ');
       const participantDetails = formData.participants.map(p =>
-        `${p.name}(專注:${p.focus},互動:${p.interaction},注意:${p.attention}${p.notes ? ',備註:' + p.notes : ''})`
+        `${p.name}(專注:${p.focus},互動:${p.interaction},注意:${p.attention},參與:${p.participation || 3}${p.notes ? ',備註:' + p.notes : ''})`
       ).join('; ');
 
       const sheetData = {
@@ -703,7 +705,7 @@ function ActivityForm() {
                             <option value={5}>5 - 很好</option>
                           </select>
                         </div>
-                        <div className="col-md-3">
+                        <div className="col-md-2">
                           <label className="form-label small">注意力</label>
                           <select
                             className="form-select form-select-sm"
@@ -717,7 +719,21 @@ function ActivityForm() {
                             <option value={5}>5 - 很好</option>
                           </select>
                         </div>
-                        <div className="col-md-3">
+                        <div className="col-md-2">
+                          <label className="form-label small">參與程度</label>
+                          <select
+                            className="form-select form-select-sm"
+                            value={participant.participation || 3}
+                            onChange={(e) => handleParticipantChange(index, 'participation', parseInt(e.target.value))}
+                          >
+                            <option value={1}>1 - 很差</option>
+                            <option value={2}>2 - 差</option>
+                            <option value={3}>3 - 普通</option>
+                            <option value={4}>4 - 好</option>
+                            <option value={5}>5 - 很好</option>
+                          </select>
+                        </div>
+                        <div className="col-md-2">
                           <label className="form-label small">備註</label>
                           <input
                             type="text"

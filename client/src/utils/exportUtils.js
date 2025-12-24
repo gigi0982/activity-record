@@ -107,10 +107,10 @@ export const exportToPDF = (activity) => {
   const participantRows = (activity.participants || []).map(p => `
     <tr>
       <td>${p.name}</td>
-      <td>${p.level || '-'}</td>
       <td>${p.focus}</td>
       <td>${p.interaction}</td>
       <td>${p.attention}</td>
+      <td>${p.participation || 3}</td>
       <td>${p.notes || '-'}</td>
     </tr>
   `).join('');
@@ -124,6 +124,9 @@ export const exportToPDF = (activity) => {
   const avgAttention = activity.participants?.length > 0
     ? (activity.participants.reduce((sum, p) => sum + (p.attention || 0), 0) / activity.participants.length).toFixed(1)
     : 0;
+  const avgParticipation = activity.participants?.length > 0
+    ? (activity.participants.reduce((sum, p) => sum + (p.participation || 3), 0) / activity.participants.length).toFixed(1)
+    : 0;
 
   const printContent = `
     <!DOCTYPE html>
@@ -132,43 +135,64 @@ export const exportToPDF = (activity) => {
       <meta charset="UTF-8">
       <title>活動紀錄 - ${activity.date}</title>
       <style>
-        body { font-family: 'Microsoft JhengHei', Arial, sans-serif; padding: 20px; }
-        h1 { text-align: center; color: #333; border-bottom: 2px solid #2196F3; padding-bottom: 10px; }
-        h2 { color: #2196F3; margin-top: 20px; }
-        .info-table { width: 100%; margin-bottom: 20px; }
-        .info-table td { padding: 8px; border-bottom: 1px solid #eee; }
-        .info-table td:first-child { font-weight: bold; width: 120px; background: #f5f5f5; }
+        body { font-family: 'Microsoft JhengHei', 'Noto Sans TC', Arial, sans-serif; padding: 20px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .org-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .site-name { font-size: 16px; margin-bottom: 15px; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .info-table td { padding: 8px; border: 1px solid #333; }
+        .info-table td:first-child { font-weight: bold; width: 100px; background: #f5f5f5; }
         table.data { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        table.data th, table.data td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-        table.data th { background: #2196F3; color: white; }
-        table.data tr:nth-child(even) { background: #f9f9f9; }
-        .summary { background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px; }
-        .summary-grid { display: flex; justify-content: space-around; text-align: center; }
-        .summary-item { }
-        .summary-value { font-size: 24px; font-weight: bold; color: #2196F3; }
-        .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
-        @media print { body { padding: 0; } }
+        table.data th, table.data td { border: 1px solid #333; padding: 8px; text-align: center; }
+        table.data th { background: #e0e0e0; }
+        .section-title { font-weight: bold; margin: 15px 0 8px 0; padding: 5px; background: #f0f0f0; border-left: 4px solid #333; }
+        .summary-row { display: flex; justify-content: space-between; margin-top: 15px; padding: 10px; background: #f9f9f9; }
+        .summary-item { text-align: center; }
+        .summary-label { font-size: 12px; color: #666; }
+        .summary-value { font-size: 18px; font-weight: bold; }
+        .notes-section { margin-top: 15px; padding: 10px; border: 1px solid #ddd; min-height: 60px; }
+        .footer { text-align: right; margin-top: 20px; font-size: 11px; color: #999; }
+        @media print {
+          body { padding: 0; margin: 0; }
+          @page { size: A4; margin: 15mm; }
+        }
       </style>
     </head>
     <body>
-      <h1>失智據點活動紀錄表</h1>
+      <div class="header">
+        <div class="org-name">社團法人宜蘭縣長期照護及社會福祉推廣協會</div>
+        <div class="site-name">三星樂智據點</div>
+      </div>
       
       <table class="info-table">
-        <tr><td>活動日期</td><td>${activity.date}</td></tr>
-        <tr><td>活動目的</td><td>${activity.purpose}</td></tr>
-        <tr><td>活動主題</td><td>${activity.topic}</td></tr>
-        <tr><td>參與人數</td><td>${activity.participants?.length || 0} 人</td></tr>
+        <tr>
+          <td>活動日期</td>
+          <td>${activity.date}</td>
+          <td>時間</td>
+          <td>${activity.time || '上午 09:00-12:00'}</td>
+        </tr>
+        <tr>
+          <td>活動主題</td>
+          <td>${activity.topic}</td>
+          <td>參與人數</td>
+          <td>${activity.participants?.length || 0} 人</td>
+        </tr>
+        <tr>
+          <td>活動目的</td>
+          <td colspan="3">${activity.purpose}</td>
+        </tr>
+        ${activity.activityName ? `<tr><td>活動名稱</td><td colspan="3">${activity.activityName}</td></tr>` : ''}
       </table>
 
-      <h2>參與者表現評估</h2>
+      <div class="section-title">長者表現評估</div>
       <table class="data">
         <thead>
           <tr>
             <th>姓名</th>
-            <th>能力分級</th>
             <th>專注力</th>
             <th>互動性</th>
             <th>注意力</th>
+            <th>參與程度</th>
             <th>備註</th>
           </tr>
         </thead>
@@ -177,26 +201,34 @@ export const exportToPDF = (activity) => {
         </tbody>
       </table>
 
-      <div class="summary">
-        <h3 style="margin-top: 0;">平均分數</h3>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <div class="summary-value">${avgFocus}</div>
-            <div>專注力</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-value">${avgInteraction}</div>
-            <div>互動性</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-value">${avgAttention}</div>
-            <div>注意力</div>
-          </div>
+      <div class="summary-row">
+        <div class="summary-item">
+          <div class="summary-label">平均專注力</div>
+          <div class="summary-value">${avgFocus}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">平均互動性</div>
+          <div class="summary-value">${avgInteraction}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">平均注意力</div>
+          <div class="summary-value">${avgAttention}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">平均參與程度</div>
+          <div class="summary-value">${avgParticipation}</div>
         </div>
       </div>
 
-      ${activity.special ? `<h2>特殊狀況</h2><p>${activity.special}</p>` : ''}
-      ${activity.discussion ? `<h2>後續討論</h2><p>${activity.discussion}</p>` : ''}
+      ${activity.special ? `
+        <div class="section-title">特殊狀況/個案描述</div>
+        <div class="notes-section">${activity.special}</div>
+      ` : ''}
+      
+      ${activity.discussion ? `
+        <div class="section-title">帶領者的感想/後續討論</div>
+        <div class="notes-section">${activity.discussion}</div>
+      ` : ''}
 
       <div class="footer">
         列印時間：${new Date().toLocaleString('zh-TW')}

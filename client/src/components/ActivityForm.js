@@ -28,6 +28,10 @@ function ActivityForm() {
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [manualName, setManualName] = useState('');
 
+  // 活動主題相關 state
+  const [topicList, setTopicList] = useState([]);
+  const [isLoadingTopics, setIsLoadingTopics] = useState(true);
+
   // 載入長者名單
   useEffect(() => {
     const fetchElders = async () => {
@@ -61,6 +65,21 @@ function ActivityForm() {
       }
     };
     fetchElders();
+  }, []);
+
+  // 載入活動主題列表
+  useEffect(() => {
+    const fetchTopics = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/sheets-topics`);
+        setTopicList(response.data || []);
+      } catch (err) {
+        console.error('載入活動主題失敗:', err);
+      } finally {
+        setIsLoadingTopics(false);
+      }
+    };
+    fetchTopics();
   }, []);
 
   const handleChange = (e) => {
@@ -422,7 +441,34 @@ function ActivityForm() {
 
               <div className="row">
                 <div className="col-md-6 mb-3">
-                  <label htmlFor="purpose" className="form-label">活動目的 *</label>
+                  <label htmlFor="topic" className="form-label">活動主題 *</label>
+                  {isLoadingTopics ? (
+                    <div className="text-muted">載入中...</div>
+                  ) : (
+                    <select
+                      className="form-select"
+                      id="topic"
+                      name="topic"
+                      value={formData.topic}
+                      onChange={(e) => {
+                        const selectedTopic = topicList.find(t => t.name === e.target.value);
+                        setFormData(prev => ({
+                          ...prev,
+                          topic: e.target.value,
+                          purpose: selectedTopic?.relatedPurposes?.join(', ') || ''
+                        }));
+                      }}
+                      required
+                    >
+                      <option value="">-- 請選擇活動主題 --</option>
+                      {topicList.map((topic, i) => (
+                        <option key={i} value={topic.name}>{topic.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="purpose" className="form-label">活動目的（自動帶入）</label>
                   <input
                     type="text"
                     className="form-control"
@@ -430,21 +476,9 @@ function ActivityForm() {
                     name="purpose"
                     value={formData.purpose}
                     onChange={handleChange}
-                    placeholder="例：提升認知功能、促進社交互動..."
-                    required
-                  />
-                </div>
-                <div className="col-md-6 mb-3">
-                  <label htmlFor="topic" className="form-label">活動主題 *</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="topic"
-                    name="topic"
-                    value={formData.topic}
-                    onChange={handleChange}
-                    placeholder="例：懷舊歌曲欣賞、手工藝製作..."
-                    required
+                    placeholder="選擇主題後自動帶入"
+                    readOnly
+                    style={{ backgroundColor: '#f8f9fa' }}
                   />
                 </div>
               </div>

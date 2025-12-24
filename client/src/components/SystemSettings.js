@@ -11,11 +11,6 @@ function SystemSettings() {
     const [newElder, setNewElder] = useState({ name: '', level: 'A', notes: '' });
     const [isLoadingElders, setIsLoadingElders] = useState(true);
 
-    // 活動目的
-    const [purposes, setPurposes] = useState([]);
-    const [newPurpose, setNewPurpose] = useState({ name: '', description: '' });
-    const [isLoadingPurposes, setIsLoadingPurposes] = useState(true);
-
     // 活動主題
     const [topics, setTopics] = useState([]);
     const [newTopic, setNewTopic] = useState({ name: '', purposes: '' });
@@ -27,11 +22,10 @@ function SystemSettings() {
 
     useEffect(() => {
         loadElders();
-        loadPurposes();
         loadTopics();
     }, []);
 
-    // ===== 載入資料 =====
+    // 載入資料
     const loadElders = async () => {
         setIsLoadingElders(true);
         try {
@@ -39,15 +33,6 @@ function SystemSettings() {
             setElders(response.data || []);
         } catch (err) { console.error('載入長者失敗:', err); }
         finally { setIsLoadingElders(false); }
-    };
-
-    const loadPurposes = async () => {
-        setIsLoadingPurposes(true);
-        try {
-            const response = await axios.get(`${API_BASE_URL}/api/sheets-purposes`);
-            setPurposes(response.data || []);
-        } catch (err) { console.error('載入活動目的失敗:', err); }
-        finally { setIsLoadingPurposes(false); }
     };
 
     const loadTopics = async () => {
@@ -59,7 +44,7 @@ function SystemSettings() {
         finally { setIsLoadingTopics(false); }
     };
 
-    // ===== 長者管理 =====
+    // 長者管理
     const getLevelInfo = (level) => {
         switch (level) {
             case 'A': return { desc: '輕度', range: '4-5分', color: '#4CAF50' };
@@ -93,29 +78,10 @@ function SystemSettings() {
         } catch (err) { alert('刪除失敗'); }
     };
 
-    // ===== 活動目的管理 =====
-    const handleAddPurpose = async () => {
-        if (!newPurpose.name.trim()) { alert('請輸入活動目的名稱'); return; }
-        setIsAdding(true);
-        try {
-            await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'addPurpose', name: newPurpose.name.trim(), description: newPurpose.description }) });
-            alert('新增成功！'); setNewPurpose({ name: '', description: '' });
-            setTimeout(loadPurposes, 1500);
-        } catch (err) { alert('新增失敗'); }
-        finally { setIsAdding(false); }
-    };
-
-    const handleDeletePurpose = async (name) => {
-        if (!window.confirm(`確定要刪除「${name}」嗎？`)) return;
-        try {
-            await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deletePurpose', name }) });
-            alert('刪除成功！'); setTimeout(loadPurposes, 1500);
-        } catch (err) { alert('刪除失敗'); }
-    };
-
-    // ===== 活動主題管理 =====
+    // 活動主題管理
     const handleAddTopic = async () => {
         if (!newTopic.name.trim()) { alert('請輸入活動主題名稱'); return; }
+        if (!newTopic.purposes.trim()) { alert('請輸入對應的活動目的'); return; }
         setIsAdding(true);
         try {
             await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'addTopic', name: newTopic.name.trim(), purposes: newTopic.purposes }) });
@@ -148,18 +114,13 @@ function SystemSettings() {
                     </button>
                 </li>
                 <li className="nav-item">
-                    <button className={`nav-link ${activeTab === 'purposes' ? 'active' : ''}`} onClick={() => setActiveTab('purposes')}>
-                        🎯 活動目的
-                    </button>
-                </li>
-                <li className="nav-item">
                     <button className={`nav-link ${activeTab === 'topics' ? 'active' : ''}`} onClick={() => setActiveTab('topics')}>
                         📋 活動主題
                     </button>
                 </li>
             </ul>
 
-            {/* ===== 長者名單 ===== */}
+            {/* 長者名單 */}
             {activeTab === 'elders' && (
                 <div>
                     <div className="card mb-4">
@@ -219,50 +180,7 @@ function SystemSettings() {
                 </div>
             )}
 
-            {/* ===== 活動目的 ===== */}
-            {activeTab === 'purposes' && (
-                <div>
-                    <div className="card mb-4">
-                        <div className="card-header bg-info text-white"><h5 className="mb-0">➕ 新增活動目的</h5></div>
-                        <div className="card-body">
-                            <div className="row align-items-end">
-                                <div className="col-md-4 mb-2">
-                                    <label className="form-label">目的名稱 *</label>
-                                    <input type="text" className="form-control" placeholder="例：提升認知功能" value={newPurpose.name} onChange={(e) => setNewPurpose({ ...newPurpose, name: e.target.value })} />
-                                </div>
-                                <div className="col-md-6 mb-2">
-                                    <label className="form-label">說明</label>
-                                    <input type="text" className="form-control" placeholder="選填" value={newPurpose.description} onChange={(e) => setNewPurpose({ ...newPurpose, description: e.target.value })} />
-                                </div>
-                                <div className="col-md-2 mb-2">
-                                    <button className="btn btn-info text-white w-100" onClick={handleAddPurpose} disabled={isAdding}>{isAdding ? '...' : '新增'}</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="card">
-                        <div className="card-header d-flex justify-content-between">
-                            <h5 className="mb-0">📋 活動目的列表</h5>
-                            <button className="btn btn-outline-primary btn-sm" onClick={loadPurposes}>🔄 重新整理</button>
-                        </div>
-                        <div className="card-body">
-                            {isLoadingPurposes ? <div className="text-center py-3"><div className="spinner-border text-primary"></div></div> :
-                                purposes.length === 0 ? <div className="text-muted text-center py-3">尚無資料</div> :
-                                    <div className="table-responsive">
-                                        <table className="table table-hover table-sm">
-                                            <thead className="table-light"><tr><th>目的名稱</th><th>說明</th><th>操作</th></tr></thead>
-                                            <tbody>
-                                                {purposes.map((p, i) => (<tr key={i}><td><strong>{p.name}</strong></td><td><small className="text-muted">{p.description || '-'}</small></td><td><button className="btn btn-outline-danger btn-sm" onClick={() => handleDeletePurpose(p.name)}>🗑️</button></td></tr>))}
-                                            </tbody>
-                                        </table>
-                                    </div>}
-                            <small className="text-muted">共 {purposes.length} 個</small>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ===== 活動主題 ===== */}
+            {/* 活動主題 */}
             {activeTab === 'topics' && (
                 <div>
                     <div className="card mb-4">
@@ -271,11 +189,11 @@ function SystemSettings() {
                             <div className="row align-items-end">
                                 <div className="col-md-4 mb-2">
                                     <label className="form-label">主題名稱 *</label>
-                                    <input type="text" className="form-control" placeholder="例：懷舊歌曲欣賞" value={newTopic.name} onChange={(e) => setNewTopic({ ...newTopic, name: e.target.value })} />
+                                    <input type="text" className="form-control" placeholder="例：認知促進" value={newTopic.name} onChange={(e) => setNewTopic({ ...newTopic, name: e.target.value })} />
                                 </div>
                                 <div className="col-md-6 mb-2">
-                                    <label className="form-label">對應活動目的（逗號分隔）</label>
-                                    <input type="text" className="form-control" placeholder="例：提升認知功能, 促進情緒表達" value={newTopic.purposes} onChange={(e) => setNewTopic({ ...newTopic, purposes: e.target.value })} />
+                                    <label className="form-label">對應活動目的 *（逗號分隔）</label>
+                                    <input type="text" className="form-control" placeholder="例：提升專注力, 增進社交技巧" value={newTopic.purposes} onChange={(e) => setNewTopic({ ...newTopic, purposes: e.target.value })} />
                                 </div>
                                 <div className="col-md-2 mb-2">
                                     <button className="btn btn-primary w-100" onClick={handleAddTopic} disabled={isAdding}>{isAdding ? '...' : '新增'}</button>
@@ -293,9 +211,13 @@ function SystemSettings() {
                                 topics.length === 0 ? <div className="text-muted text-center py-3">尚無資料</div> :
                                     <div className="table-responsive">
                                         <table className="table table-hover table-sm">
-                                            <thead className="table-light"><tr><th>主題名稱</th><th>對應目的</th><th>操作</th></tr></thead>
+                                            <thead className="table-light"><tr><th>主題名稱</th><th>對應活動目的</th><th>操作</th></tr></thead>
                                             <tbody>
-                                                {topics.map((t, i) => (<tr key={i}><td><strong>{t.name}</strong></td><td>{t.relatedPurposes?.map((p, j) => <span key={j} className="badge bg-info me-1">{p}</span>) || '-'}</td><td><button className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteTopic(t.name)}>🗑️</button></td></tr>))}
+                                                {topics.map((t, i) => (<tr key={i}>
+                                                    <td><strong>{t.name}</strong></td>
+                                                    <td>{t.relatedPurposes?.map((p, j) => <span key={j} className="badge bg-info me-1">{p}</span>) || '-'}</td>
+                                                    <td><button className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteTopic(t.name)}>🗑️</button></td>
+                                                </tr>))}
                                             </tbody>
                                         </table>
                                     </div>}
@@ -306,7 +228,7 @@ function SystemSettings() {
             )}
 
             <div className="alert alert-info mt-4">
-                <strong>💡 提示：</strong>新增或刪除後，約 1-2 秒資料會同步到 Google Sheets。
+                <strong>💡 提示：</strong>在「新增活動」頁面選擇主題後，會自動帶出對應的活動目的。
             </div>
         </div>
     );

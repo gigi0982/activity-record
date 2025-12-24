@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
+import { getActivities } from '../utils/storage';
 
 function QuarterlyStats() {
     const [stats, setStats] = useState(null);
@@ -12,15 +13,86 @@ function QuarterlyStats() {
     const [selectedElder, setSelectedElder] = useState(null);
     const [elderTrend, setElderTrend] = useState(null);
 
+    // 從本地活動資料計算統計
+    const calculateStatsFromActivities = (activities, year, quarter) => {
+        // 篩選指定季度的活動
+        const startMonth = (quarter - 1) * 3;
+        const endMonth = quarter * 3;
+
+        const filteredActivities = activities.filter(activity => {
+            const date = new Date(activity.date);
+            return date.getFullYear() === year &&
+                date.getMonth() >= startMonth &&
+                date.getMonth() < endMonth;
+        });
+
+        // 統計長者表現
+        const elderStats = {};
+        filteredActivities.forEach(activity => {
+            (activity.participants || []).forEach(p => {
+                if (!elderStats[p.name]) {
+                    elderStats[p.name] = {
+                        name: p.name,
+                        level: p.level,
+                        focusSum: 0,
+                        interactionSum: 0,
+                        attentionSum: 0,
+                        count: 0
+                    };
+                }
+                elderStats[p.name].focusSum += p.focus || 0;
+                elderStats[p.name].interactionSum += p.interaction || 0;
+                elderStats[p.name].attentionSum += p.attention || 0;
+                elderStats[p.name].count++;
+            });
+        });
+
+        const elders = Object.values(elderStats).map(e => ({
+            id: e.name,
+            name: e.name,
+            level: e.level,
+            participationCount: e.count,
+            avgFocus: (e.focusSum / e.count).toFixed(1),
+            avgInteraction: (e.interactionSum / e.count).toFixed(1),
+            avgAttention: (e.attentionSum / e.count).toFixed(1),
+            trend: 'stable',
+            needsAttention: e.focusSum / e.count < 3 || e.attentionSum / e.count < 3
+        }));
+
+        return {
+            period: `${year} Q${quarter}`,
+            totalActivities: filteredActivities.length,
+            elders: elders
+        };
+    };
+
     // 取得季度統計
     useEffect(() => {
         const fetchStats = async () => {
             setIsLoading(true);
+            setError('');
             try {
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/stats/quarterly?year=${selectedYear}&quarter=${selectedQuarter}`
-                );
-                setStats(response.data);
+                // 優先使用本地資料
+                const localActivities = getActivities();
+                if (localActivities.length > 0) {
+                    const calculatedStats = calculateStatsFromActivities(localActivities, selectedYear, selectedQuarter);
+                    setStats(calculatedStats);
+                } else {
+                    // 嘗試從 API 取得
+                    try {
+                        const response = await axios.get(
+                            `${API_BASE_URL}/api/stats/quarterly?year=${selectedYear}&quarter=${selectedQuarter}`
+                        );
+                        setStats(response.data);
+                    } catch (apiError) {
+                        // API 失敗時顯示空資料
+                        setStats({
+                            period: `${selectedYear} Q${selectedQuarter}`,
+                            totalActivities: 0,
+                            elders: []
+                        });
+                    }
+                }
             } catch (err) {
                 console.error('取得統計資料失敗:', err);
                 setError('無法載入統計資料');

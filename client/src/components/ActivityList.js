@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
 import { getActivities, initSampleData } from '../utils/storage';
+import { exportToExcel, exportToPDF, exportAllToPDF } from '../utils/exportUtils';
 
 function ActivityList() {
   const [activities, setActivities] = useState([]);
@@ -77,15 +78,31 @@ function ActivityList() {
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h2>活動紀錄列表</h2>
-        <div>
-          <Link to="/add" className="btn btn-primary me-2">
+        <div className="d-flex gap-2 flex-wrap">
+          <Link to="/add" className="btn btn-primary">
             新增活動紀錄
           </Link>
           <Link to="/stats" className="btn btn-info">
             統計分析
           </Link>
+          {activities.length > 0 && (
+            <>
+              <button
+                className="btn btn-success"
+                onClick={() => exportToExcel(activities)}
+              >
+                📄 匯出 Excel
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={() => exportAllToPDF(activities)}
+              >
+                📄 匯出 PDF
+              </button>
+            </>
+          )}
         </div>
       </div>
 

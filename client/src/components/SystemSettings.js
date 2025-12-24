@@ -15,6 +15,7 @@ function SystemSettings() {
     const [topics, setTopics] = useState([]);
     const [newTopic, setNewTopic] = useState({ name: '', purposes: '' });
     const [isLoadingTopics, setIsLoadingTopics] = useState(true);
+    const [editingTopic, setEditingTopic] = useState(null); // 編輯中的主題
 
     // 當前分頁
     const [activeTab, setActiveTab] = useState('elders');
@@ -97,6 +98,34 @@ function SystemSettings() {
             await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteTopic', name }) });
             alert('刪除成功！'); setTimeout(loadTopics, 1500);
         } catch (err) { alert('刪除失敗'); }
+    };
+
+    // 開始編輯主題
+    const startEditTopic = (topic) => {
+        setEditingTopic({
+            name: topic.name,
+            purposes: topic.relatedPurposes?.join(', ') || ''
+        });
+    };
+
+    // 取消編輯
+    const cancelEditTopic = () => {
+        setEditingTopic(null);
+    };
+
+    // 儲存編輯
+    const handleUpdateTopic = async () => {
+        if (!editingTopic.purposes.trim()) { alert('請輸入對應的活動目的'); return; }
+        setIsAdding(true);
+        try {
+            // 先刪除舊的，再新增新的
+            await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteTopic', name: editingTopic.name }) });
+            await new Promise(r => setTimeout(r, 500));
+            await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'addTopic', name: editingTopic.name, purposes: editingTopic.purposes }) });
+            alert('更新成功！'); setEditingTopic(null);
+            setTimeout(loadTopics, 1500);
+        } catch (err) { alert('更新失敗'); }
+        finally { setIsAdding(false); }
     };
 
     return (
@@ -213,11 +242,37 @@ function SystemSettings() {
                                         <table className="table table-hover table-sm">
                                             <thead className="table-light"><tr><th>主題名稱</th><th>對應活動目的</th><th>操作</th></tr></thead>
                                             <tbody>
-                                                {topics.map((t, i) => (<tr key={i}>
-                                                    <td><strong>{t.name}</strong></td>
-                                                    <td>{t.relatedPurposes?.map((p, j) => <span key={j} className="badge bg-info me-1">{p}</span>) || '-'}</td>
-                                                    <td><button className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteTopic(t.name)}>🗑️</button></td>
-                                                </tr>))}
+                                                {topics.map((t, i) => (
+                                                    <tr key={i}>
+                                                        <td><strong>{t.name}</strong></td>
+                                                        <td>
+                                                            {editingTopic && editingTopic.name === t.name ? (
+                                                                <input
+                                                                    type="text"
+                                                                    className="form-control form-control-sm"
+                                                                    value={editingTopic.purposes}
+                                                                    onChange={(e) => setEditingTopic({ ...editingTopic, purposes: e.target.value })}
+                                                                    placeholder="逗號分隔，例：提升專注力, 增進社交技巧"
+                                                                />
+                                                            ) : (
+                                                                t.relatedPurposes?.map((p, j) => <span key={j} className="badge bg-info me-1">{p}</span>) || '-'
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            {editingTopic && editingTopic.name === t.name ? (
+                                                                <>
+                                                                    <button className="btn btn-success btn-sm me-1" onClick={handleUpdateTopic} disabled={isAdding}>✓</button>
+                                                                    <button className="btn btn-secondary btn-sm" onClick={cancelEditTopic}>✕</button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <button className="btn btn-outline-warning btn-sm me-1" onClick={() => startEditTopic(t)}>✏️</button>
+                                                                    <button className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteTopic(t.name)}>🗑️</button>
+                                                                </>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                             </tbody>
                                         </table>
                                     </div>}

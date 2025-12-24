@@ -12,6 +12,7 @@ function ActivityForm() {
     activityName: '', // 活動名稱
     purpose: '',
     topic: '',
+    selectedPurposes: {}, // 勾選的活動目的
     participants: [],
     special: '',
     discussion: ''
@@ -311,6 +312,11 @@ function ActivityForm() {
       // Google Apps Script 網址
       const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
 
+      // 將勾選的目的轉成字串
+      const selectedPurposeList = Object.keys(formData.selectedPurposes || {})
+        .filter(key => formData.selectedPurposes[key])
+        .join(', ');
+
       // 準備要寫入 Google Sheets 的資料
       const participantNames = formData.participants.map(p => p.name).join(', ');
       const participantDetails = formData.participants.map(p =>
@@ -321,7 +327,7 @@ function ActivityForm() {
         date: formData.date,
         time: formData.time,
         activityName: formData.activityName,
-        purpose: formData.purpose,
+        purpose: selectedPurposeList,
         topic: formData.topic,
         participants: participantDetails,
         special: formData.special || '',
@@ -440,7 +446,7 @@ function ActivityForm() {
               </div>
 
               <div className="row">
-                <div className="col-md-6 mb-3">
+                <div className="col-md-12 mb-3">
                   <label htmlFor="topic" className="form-label">活動主題 *</label>
                   {isLoadingTopics ? (
                     <div className="text-muted">載入中...</div>
@@ -452,10 +458,14 @@ function ActivityForm() {
                       value={formData.topic}
                       onChange={(e) => {
                         const selectedTopic = topicList.find(t => t.name === e.target.value);
+                        const purposes = selectedTopic?.relatedPurposes || [];
+                        // 自動勾選對應的目的
+                        const purposeObj = {};
+                        purposes.forEach(p => { purposeObj[p] = true; });
                         setFormData(prev => ({
                           ...prev,
                           topic: e.target.value,
-                          purpose: selectedTopic?.relatedPurposes?.join(', ') || ''
+                          selectedPurposes: purposeObj
                         }));
                       }}
                       required
@@ -467,21 +477,45 @@ function ActivityForm() {
                     </select>
                   )}
                 </div>
-                <div className="col-md-6 mb-3">
-                  <label htmlFor="purpose" className="form-label">活動目的（自動帶入）</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="purpose"
-                    name="purpose"
-                    value={formData.purpose}
-                    onChange={handleChange}
-                    placeholder="選擇主題後自動帶入"
-                    readOnly
-                    style={{ backgroundColor: '#f8f9fa' }}
-                  />
-                </div>
               </div>
+
+              {/* 活動目的勾選區 */}
+              {formData.topic && (
+                <div className="mb-4">
+                  <label className="form-label">
+                    <i className="fas fa-bullseye me-2"></i>
+                    活動目的（可勾選增減）
+                  </label>
+                  <div className="border rounded p-3 bg-light">
+                    <div className="row">
+                      {topicList.find(t => t.name === formData.topic)?.relatedPurposes?.map((purpose, i) => (
+                        <div key={i} className="col-md-4 col-sm-6 mb-2">
+                          <div className="form-check">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id={`purpose_${i}`}
+                              checked={formData.selectedPurposes?.[purpose] || false}
+                              onChange={() => {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  selectedPurposes: {
+                                    ...prev.selectedPurposes,
+                                    [purpose]: !prev.selectedPurposes?.[purpose]
+                                  }
+                                }));
+                              }}
+                            />
+                            <label className="form-check-label" htmlFor={`purpose_${i}`}>
+                              {purpose}
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 長者勾選區域 */}
               <div className="mb-4">

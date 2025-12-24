@@ -252,7 +252,9 @@ function QuarterlyStats() {
                                         className={elder.needsAttention ? 'table-warning' : ''}
                                     >
                                         <td>
-                                            <strong>{elder.name}</strong>
+                                            <Link to={`/elder-report/${encodeURIComponent(elder.name)}`} className="text-decoration-none">
+                                                <strong>{elder.name}</strong>
+                                            </Link>
                                             {elder.needsAttention && (
                                                 <span className="badge bg-danger ms-2">需關注</span>
                                             )}

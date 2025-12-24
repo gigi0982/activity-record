@@ -155,27 +155,23 @@ function ActivityList() {
                         </div>
                       </div>
 
-                      <div className="row text-center mb-3 border-top pt-2">
-                        <div className="col-12 mb-2">
-                          <small className="text-muted">平均分數</small>
-                        </div>
-                        <div className="col-4">
-                          <div className={`h6 ${getScoreColor(calculateAverage(activity.participants, 'focus'))}`}>
-                            {calculateAverage(activity.participants, 'focus')}
+                      <div className="row text-center mb-3 border-top pt-3">
+                        <div className="col-12">
+                          <div className="d-flex align-items-center justify-content-center">
+                            <span className="badge bg-primary me-2" style={{ fontSize: '1.2rem', padding: '8px 16px' }}>
+                              👥 {activity.participants.length} 人
+                            </span>
+                            <span className="text-muted">參與本次活動</span>
                           </div>
-                          <small className="text-muted">專注力</small>
-                        </div>
-                        <div className="col-4">
-                          <div className={`h6 ${getScoreColor(calculateAverage(activity.participants, 'interaction'))}`}>
-                            {calculateAverage(activity.participants, 'interaction')}
+                          {/* 參與人數進度條 */}
+                          <div className="progress mt-2" style={{ height: '8px' }}>
+                            <div
+                              className="progress-bar bg-success"
+                              role="progressbar"
+                              style={{ width: `${Math.min(activity.participants.length * 10, 100)}%` }}
+                            />
                           </div>
-                          <small className="text-muted">人際互動</small>
-                        </div>
-                        <div className="col-4">
-                          <div className={`h6 ${getScoreColor(calculateAverage(activity.participants, 'attention'))}`}>
-                            {calculateAverage(activity.participants, 'attention')}
-                          </div>
-                          <small className="text-muted">注意力</small>
+                          <small className="text-muted">（滿額 10 人）</small>
                         </div>
                       </div>
                     </>

@@ -87,6 +87,14 @@ function Navigation() {
                 📋 評鑑報告
               </Link>
             </li>
+            <li className="nav-item">
+              <Link
+                className={`nav-link ${location.pathname === '/elder-management' ? 'active' : ''}`}
+                to="/elder-management"
+              >
+                👴 長者管理
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

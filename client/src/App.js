@@ -7,13 +7,13 @@ import Statistics from './components/Statistics';
 import QuarterlyStats from './components/QuarterlyStats';
 import ElderProfile from './components/ElderProfile';
 import ElderReport from './components/ElderReport';
+import ElderManagement from './components/ElderManagement';
 import MeetingList from './components/MeetingList';
 import MeetingForm from './components/MeetingForm';
 import PlanEditor from './components/PlanEditor';
 import EvaluationReport from './components/EvaluationReport';
 import QuarterlyComparison from './components/QuarterlyComparison';
 import PlanTracking from './components/PlanTracking';
-import SystemSettings from './components/SystemSettings';
 
 function App() {
   return (
@@ -27,6 +27,7 @@ function App() {
           <Route path="/quarterly" element={<QuarterlyStats />} />
           <Route path="/elder/:name" element={<ElderProfile />} />
           <Route path="/elder-report/:elderName" element={<ElderReport />} />
+          <Route path="/elder-management" element={<ElderManagement />} />
           <Route path="/meetings" element={<MeetingList />} />
           <Route path="/meetings/new" element={<MeetingForm />} />
           <Route path="/meetings/:id" element={<MeetingForm />} />
@@ -34,7 +35,6 @@ function App() {
           <Route path="/tracking" element={<PlanTracking />} />
           <Route path="/comparison" element={<QuarterlyComparison />} />
           <Route path="/evaluation" element={<EvaluationReport />} />
-          <Route path="/settings" element={<SystemSettings />} />
         </Routes>
       </div>
     </div>

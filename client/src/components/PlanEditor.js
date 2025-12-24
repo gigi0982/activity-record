@@ -4,26 +4,34 @@ import axios from 'axios';
 import API_BASE_URL from '../config/api';
 
 function PlanEditor() {
-    // 當前年月
-    const today = new Date();
-    const [currentYear, setCurrentYear] = useState(today.getFullYear());
-    const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1);
+    // 當前季度
+    const getQuarter = () => {
+        const month = new Date().getMonth() + 1;
+        const year = new Date().getFullYear();
+        const q = Math.ceil(month / 3);
+        return `${year}-Q${q}`;
+    };
 
-    // 活動規劃資料
-    const [plannedActivities, setPlannedActivities] = useState([]);
+    const [selectedQuarter, setSelectedQuarter] = useState(getQuarter());
     const [topicList, setTopicList] = useState([]);
     const [isLoadingTopics, setIsLoadingTopics] = useState(true);
 
-    // 新增活動表單
-    const [newActivity, setNewActivity] = useState({
-        date: '',
-        topic: '',
-        activityName: '',
-        materials: '',
-        time: '09:00-11:00',
-        notes: ''
+    // 每週課表（週一到週五）
+    const [weeklySchedule, setWeeklySchedule] = useState({
+        monday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+        tuesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+        wednesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+        thursday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+        friday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } }
     });
-    const [showAddForm, setShowAddForm] = useState(false);
+
+    const dayNames = {
+        monday: '週一',
+        tuesday: '週二',
+        wednesday: '週三',
+        thursday: '週四',
+        friday: '週五'
+    };
 
     // 載入活動主題
     useEffect(() => {
@@ -40,310 +48,224 @@ function PlanEditor() {
         fetchTopics();
     }, []);
 
-    // 載入當月規劃資料
+    // 載入儲存的課表
     useEffect(() => {
-        const key = `planned_activities_${currentYear}_${currentMonth}`;
+        const key = `weekly_schedule_${selectedQuarter}`;
         const saved = localStorage.getItem(key);
         if (saved) {
-            setPlannedActivities(JSON.parse(saved));
+            setWeeklySchedule(JSON.parse(saved));
         } else {
-            setPlannedActivities([]);
+            // 重置為空
+            setWeeklySchedule({
+                monday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+                tuesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+                wednesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+                thursday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+                friday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } }
+            });
         }
-    }, [currentYear, currentMonth]);
+    }, [selectedQuarter]);
 
-    // 儲存規劃資料
-    const saveActivities = (activities) => {
-        const key = `planned_activities_${currentYear}_${currentMonth}`;
-        localStorage.setItem(key, JSON.stringify(activities));
-        setPlannedActivities(activities);
+    // 更新課表項目
+    const updateSchedule = (day, period, field, value) => {
+        setWeeklySchedule(prev => ({
+            ...prev,
+            [day]: {
+                ...prev[day],
+                [period]: {
+                    ...prev[day][period],
+                    [field]: value
+                }
+            }
+        }));
     };
 
-    // 新增活動
-    const handleAddActivity = () => {
-        if (!newActivity.date || !newActivity.topic) {
-            alert('請選擇日期和活動主題');
-            return;
-        }
-        const activity = {
-            id: Date.now(),
-            ...newActivity,
-            status: 'planned' // planned = 規劃中, done = 已執行
+    // 儲存課表
+    const saveSchedule = () => {
+        const key = `weekly_schedule_${selectedQuarter}`;
+        localStorage.setItem(key, JSON.stringify(weeklySchedule));
+        alert('課表已儲存！');
+    };
+
+    // 清空課表
+    const clearSchedule = () => {
+        if (!window.confirm('確定要清空本季課表嗎？')) return;
+        const empty = {
+            monday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+            tuesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+            wednesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+            thursday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
+            friday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } }
         };
-        saveActivities([...plannedActivities, activity]);
-        setNewActivity({ date: '', topic: '', activityName: '', materials: '', time: '09:00-11:00', notes: '' });
-        setShowAddForm(false);
+        setWeeklySchedule(empty);
+        localStorage.removeItem(`weekly_schedule_${selectedQuarter}`);
     };
 
-    // 刪除活動
-    const handleDeleteActivity = (id) => {
-        if (!window.confirm('確定要刪除這個活動嗎？')) return;
-        saveActivities(plannedActivities.filter(a => a.id !== id));
-    };
-
-    // 標記已執行
-    const markAsDone = (id) => {
-        saveActivities(plannedActivities.map(a =>
-            a.id === id ? { ...a, status: 'done' } : a
-        ));
-    };
-
-    // 切換月份
-    const changeMonth = (delta) => {
-        let newMonth = currentMonth + delta;
-        let newYear = currentYear;
-        if (newMonth > 12) { newMonth = 1; newYear++; }
-        if (newMonth < 1) { newMonth = 12; newYear--; }
-        setCurrentMonth(newMonth);
-        setCurrentYear(newYear);
-    };
-
-    // 取得當月天數
-    const getDaysInMonth = () => {
-        return new Date(currentYear, currentMonth, 0).getDate();
-    };
-
-    // 取得當月第一天是星期幾
-    const getFirstDayOfMonth = () => {
-        return new Date(currentYear, currentMonth - 1, 1).getDay();
-    };
-
-    // 生成日曆格子
-    const renderCalendar = () => {
-        const daysInMonth = getDaysInMonth();
-        const firstDay = getFirstDayOfMonth();
-        const days = [];
-        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-
-        // 表頭
-        const header = weekDays.map(d => (
-            <div key={d} className="calendar-header-cell text-center fw-bold bg-light py-2">
-                {d}
-            </div>
-        ));
-
-        // 空白格
-        for (let i = 0; i < firstDay; i++) {
-            days.push(<div key={`empty-${i}`} className="calendar-cell"></div>);
-        }
-
-        // 日期格
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const dayActivities = plannedActivities.filter(a => a.date === dateStr);
-            const isToday = today.getFullYear() === currentYear &&
-                today.getMonth() + 1 === currentMonth &&
-                today.getDate() === day;
-
-            days.push(
-                <div
-                    key={day}
-                    className={`calendar-cell border p-1 ${isToday ? 'bg-warning bg-opacity-25' : ''}`}
-                    style={{ minHeight: '80px', cursor: 'pointer' }}
-                    onClick={() => {
-                        setNewActivity(prev => ({ ...prev, date: dateStr }));
-                        setShowAddForm(true);
-                    }}
-                >
-                    <div className={`fw-bold ${isToday ? 'text-primary' : ''}`}>{day}</div>
-                    {dayActivities.map(a => (
-                        <div
-                            key={a.id}
-                            className={`badge w-100 text-start mb-1 ${a.status === 'done' ? 'bg-success' : 'bg-info'}`}
-                            style={{ fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                            onClick={(e) => { e.stopPropagation(); }}
-                        >
-                            {a.topic}
-                        </div>
-                    ))}
-                </div>
-            );
-        }
+    // 渲染課表格子
+    const renderCell = (day, period) => {
+        const data = weeklySchedule[day]?.[period] || { topic: '', activityName: '', materials: '' };
 
         return (
-            <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
-                {header}
-                {days}
-            </div>
+            <td className="p-2" style={{ verticalAlign: 'top', minWidth: '180px' }}>
+                <select
+                    className="form-select form-select-sm mb-1"
+                    value={data.topic}
+                    onChange={(e) => updateSchedule(day, period, 'topic', e.target.value)}
+                >
+                    <option value="">-- 選擇主題 --</option>
+                    {topicList.map((t, i) => (
+                        <option key={i} value={t.name}>{t.name}</option>
+                    ))}
+                </select>
+                {data.topic && (
+                    <>
+                        <input
+                            type="text"
+                            className="form-control form-control-sm mb-1"
+                            placeholder="活動名稱"
+                            value={data.activityName}
+                            onChange={(e) => updateSchedule(day, period, 'activityName', e.target.value)}
+                        />
+                        <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            placeholder="材料"
+                            value={data.materials}
+                            onChange={(e) => updateSchedule(day, period, 'materials', e.target.value)}
+                        />
+                    </>
+                )}
+            </td>
         );
+    };
+
+    // 統計本季課程數
+    const countCourses = () => {
+        let count = 0;
+        Object.values(weeklySchedule).forEach(day => {
+            if (day.am?.topic) count++;
+            if (day.pm?.topic) count++;
+        });
+        return count;
     };
 
     return (
         <div>
             <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2><i className="fas fa-calendar me-2"></i>活動規劃</h2>
+                <h2><i className="fas fa-calendar-week me-2"></i>每週課表</h2>
                 <div className="d-flex align-items-center gap-2">
-                    <button className="btn btn-outline-secondary" onClick={() => changeMonth(-1)}>
-                        <i className="fas fa-chevron-left"></i>
-                    </button>
-                    <span className="h5 mb-0 mx-2">{currentYear} 年 {currentMonth} 月</span>
-                    <button className="btn btn-outline-secondary" onClick={() => changeMonth(1)}>
-                        <i className="fas fa-chevron-right"></i>
-                    </button>
-                    <button className="btn btn-primary ms-3" onClick={() => setShowAddForm(true)}>
-                        <i className="fas fa-plus me-1"></i>新增活動
-                    </button>
+                    <select
+                        className="form-select"
+                        style={{ width: '150px' }}
+                        value={selectedQuarter}
+                        onChange={(e) => setSelectedQuarter(e.target.value)}
+                    >
+                        <option value="2024-Q4">2024 Q4</option>
+                        <option value="2025-Q1">2025 Q1</option>
+                        <option value="2025-Q2">2025 Q2</option>
+                        <option value="2025-Q3">2025 Q3</option>
+                        <option value="2025-Q4">2025 Q4</option>
+                    </select>
                 </div>
             </div>
 
-            {/* 日曆 */}
-            <div className="card mb-4">
-                <div className="card-body">
-                    {renderCalendar()}
-                </div>
+            <div className="alert alert-info mb-4">
+                <strong>💡 說明：</strong>設定好每週固定課表後，本季每週都會照此安排執行。
+                <span className="badge bg-primary ms-2">{countCourses()} 堂課/週</span>
             </div>
 
-            {/* 本月活動列表 */}
+            {/* 每週課表 */}
             <div className="card mb-4">
-                <div className="card-header d-flex justify-content-between">
-                    <span><i className="fas fa-list me-2"></i>本月活動列表</span>
-                    <span className="badge bg-primary">{plannedActivities.length} 個活動</span>
+                <div className="card-header">
+                    <span><i className="fas fa-table me-2"></i>{selectedQuarter} 每週課表</span>
                 </div>
-                <div className="card-body">
-                    {plannedActivities.length === 0 ? (
-                        <p className="text-muted text-center mb-0">本月尚無規劃活動，點擊日曆或「新增活動」開始規劃</p>
-                    ) : (
-                        <table className="table table-sm table-hover">
-                            <thead>
+                <div className="card-body p-0">
+                    <div className="table-responsive">
+                        <table className="table table-bordered mb-0">
+                            <thead className="table-light">
                                 <tr>
-                                    <th>日期</th>
-                                    <th>時間</th>
-                                    <th>活動主題</th>
-                                    <th>活動名稱</th>
-                                    <th>材料</th>
-                                    <th>狀態</th>
-                                    <th>操作</th>
+                                    <th className="text-center" style={{ width: '80px' }}>時段</th>
+                                    {Object.entries(dayNames).map(([key, name]) => (
+                                        <th key={key} className="text-center">{name}</th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
-                                {plannedActivities.sort((a, b) => a.date.localeCompare(b.date)).map(a => (
-                                    <tr key={a.id}>
-                                        <td>{a.date}</td>
-                                        <td>{a.time}</td>
-                                        <td><strong>{a.topic}</strong></td>
-                                        <td>{a.activityName || '-'}</td>
-                                        <td><small className="text-muted">{a.materials || '-'}</small></td>
-                                        <td>
-                                            {a.status === 'done' ? (
-                                                <span className="badge bg-success">✓ 已執行</span>
-                                            ) : (
-                                                <span className="badge bg-secondary">待執行</span>
-                                            )}
-                                        </td>
-                                        <td>
-                                            {a.status !== 'done' && (
-                                                <button className="btn btn-sm btn-outline-success me-1" onClick={() => markAsDone(a.id)}>
-                                                    ✓
-                                                </button>
-                                            )}
-                                            <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteActivity(a.id)}>
-                                                🗑️
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                <tr>
+                                    <td className="text-center fw-bold bg-light">
+                                        <div>上午</div>
+                                        <small className="text-muted">09:00-11:00</small>
+                                    </td>
+                                    {Object.keys(dayNames).map(day => renderCell(day, 'am'))}
+                                </tr>
+                                <tr>
+                                    <td className="text-center fw-bold bg-light">
+                                        <div>下午</div>
+                                        <small className="text-muted">13:30-15:30</small>
+                                    </td>
+                                    {Object.keys(dayNames).map(day => renderCell(day, 'pm'))}
+                                </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* 課表摘要 */}
+            <div className="card mb-4">
+                <div className="card-header">
+                    <span><i className="fas fa-list me-2"></i>課表摘要</span>
+                </div>
+                <div className="card-body">
+                    {countCourses() === 0 ? (
+                        <p className="text-muted mb-0">尚未設定任何課程</p>
+                    ) : (
+                        <div className="row">
+                            {Object.entries(dayNames).map(([day, name]) => {
+                                const am = weeklySchedule[day]?.am;
+                                const pm = weeklySchedule[day]?.pm;
+                                if (!am?.topic && !pm?.topic) return null;
+                                return (
+                                    <div key={day} className="col-md-4 mb-3">
+                                        <div className="card h-100">
+                                            <div className="card-header py-2 bg-primary text-white">{name}</div>
+                                            <div className="card-body py-2">
+                                                {am?.topic && (
+                                                    <div className="mb-2">
+                                                        <span className="badge bg-warning text-dark me-1">上午</span>
+                                                        <strong>{am.topic}</strong>
+                                                        {am.activityName && <div><small>{am.activityName}</small></div>}
+                                                        {am.materials && <div><small className="text-muted">材料：{am.materials}</small></div>}
+                                                    </div>
+                                                )}
+                                                {pm?.topic && (
+                                                    <div>
+                                                        <span className="badge bg-info me-1">下午</span>
+                                                        <strong>{pm.topic}</strong>
+                                                        {pm.activityName && <div><small>{pm.activityName}</small></div>}
+                                                        {pm.materials && <div><small className="text-muted">材料：{pm.materials}</small></div>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* 新增活動 Modal */}
-            {showAddForm && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                    <div className="modal-dialog">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">新增活動規劃</h5>
-                                <button type="button" className="btn-close" onClick={() => setShowAddForm(false)}></button>
-                            </div>
-                            <div className="modal-body">
-                                <div className="mb-3">
-                                    <label className="form-label">日期 *</label>
-                                    <input
-                                        type="date"
-                                        className="form-control"
-                                        value={newActivity.date}
-                                        onChange={(e) => setNewActivity({ ...newActivity, date: e.target.value })}
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">活動主題 *</label>
-                                    {isLoadingTopics ? (
-                                        <div className="text-muted">載入中...</div>
-                                    ) : (
-                                        <select
-                                            className="form-select"
-                                            value={newActivity.topic}
-                                            onChange={(e) => setNewActivity({ ...newActivity, topic: e.target.value })}
-                                        >
-                                            <option value="">-- 請選擇 --</option>
-                                            {topicList.map((t, i) => (
-                                                <option key={i} value={t.name}>{t.name}</option>
-                                            ))}
-                                            <option value="__other">其他（自訂）</option>
-                                        </select>
-                                    )}
-                                    {newActivity.topic === '__other' && (
-                                        <input
-                                            type="text"
-                                            className="form-control mt-2"
-                                            placeholder="輸入自訂活動主題"
-                                            onChange={(e) => setNewActivity({ ...newActivity, topic: e.target.value })}
-                                        />
-                                    )}
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">活動名稱</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        value={newActivity.activityName}
-                                        onChange={(e) => setNewActivity({ ...newActivity, activityName: e.target.value })}
-                                        placeholder="例：手作愛心吊飾"
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">活動材料</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        value={newActivity.materials}
-                                        onChange={(e) => setNewActivity({ ...newActivity, materials: e.target.value })}
-                                        placeholder="例：色紙、剪刀、膠水"
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">時間</label>
-                                    <select
-                                        className="form-select"
-                                        value={newActivity.time}
-                                        onChange={(e) => setNewActivity({ ...newActivity, time: e.target.value })}
-                                    >
-                                        <option value="09:00-11:00">上午 09:00-11:00</option>
-                                        <option value="13:30-15:30">下午 13:30-15:30</option>
-                                    </select>
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">備註</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        value={newActivity.notes}
-                                        onChange={(e) => setNewActivity({ ...newActivity, notes: e.target.value })}
-                                        placeholder="選填"
-                                    />
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowAddForm(false)}>取消</button>
-                                <button type="button" className="btn btn-primary" onClick={handleAddActivity}>新增</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <Link to="/" className="btn btn-secondary">← 返回首頁</Link>
+            {/* 操作按鈕 */}
+            <div className="d-flex gap-2">
+                <button className="btn btn-primary btn-lg" onClick={saveSchedule}>
+                    <i className="fas fa-save me-1"></i>儲存課表
+                </button>
+                <button className="btn btn-outline-danger" onClick={clearSchedule}>
+                    清空課表
+                </button>
+                <Link to="/" className="btn btn-secondary">← 返回首頁</Link>
+            </div>
         </div>
     );
 }

@@ -18,6 +18,8 @@ function PlanEditor() {
     const [newActivity, setNewActivity] = useState({
         date: '',
         topic: '',
+        activityName: '',
+        materials: '',
         time: '09:00-11:00',
         notes: ''
     });
@@ -68,7 +70,7 @@ function PlanEditor() {
             status: 'planned' // planned = 規劃中, done = 已執行
         };
         saveActivities([...plannedActivities, activity]);
-        setNewActivity({ date: '', topic: '', time: '09:00-11:00', notes: '' });
+        setNewActivity({ date: '', topic: '', activityName: '', materials: '', time: '09:00-11:00', notes: '' });
         setShowAddForm(false);
     };
 
@@ -206,7 +208,8 @@ function PlanEditor() {
                                     <th>日期</th>
                                     <th>時間</th>
                                     <th>活動主題</th>
-                                    <th>備註</th>
+                                    <th>活動名稱</th>
+                                    <th>材料</th>
                                     <th>狀態</th>
                                     <th>操作</th>
                                 </tr>
@@ -217,7 +220,8 @@ function PlanEditor() {
                                         <td>{a.date}</td>
                                         <td>{a.time}</td>
                                         <td><strong>{a.topic}</strong></td>
-                                        <td><small className="text-muted">{a.notes || '-'}</small></td>
+                                        <td>{a.activityName || '-'}</td>
+                                        <td><small className="text-muted">{a.materials || '-'}</small></td>
                                         <td>
                                             {a.status === 'done' ? (
                                                 <span className="badge bg-success">✓ 已執行</span>
@@ -287,6 +291,26 @@ function PlanEditor() {
                                             onChange={(e) => setNewActivity({ ...newActivity, topic: e.target.value })}
                                         />
                                     )}
+                                </div>
+                                <div className="mb-3">
+                                    <label className="form-label">活動名稱</label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        value={newActivity.activityName}
+                                        onChange={(e) => setNewActivity({ ...newActivity, activityName: e.target.value })}
+                                        placeholder="例：手作愛心吊飾"
+                                    />
+                                </div>
+                                <div className="mb-3">
+                                    <label className="form-label">活動材料</label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        value={newActivity.materials}
+                                        onChange={(e) => setNewActivity({ ...newActivity, materials: e.target.value })}
+                                        placeholder="例：色紙、剪刀、膠水"
+                                    />
                                 </div>
                                 <div className="mb-3">
                                     <label className="form-label">時間</label>

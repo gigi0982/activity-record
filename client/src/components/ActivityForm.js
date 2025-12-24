@@ -32,7 +32,20 @@ function ActivityForm() {
   useEffect(() => {
     const fetchElders = async () => {
       try {
-        // 優先從 LocalStorage 讀取
+        // 優先從 Google Sheets 讀取（多人同步）
+        const response = await axios.get(`${API_BASE_URL}/api/sheets-elders`);
+        if (response.data && response.data.length > 0) {
+          setElderList(response.data);
+          setIsLoadingElders(false);
+          return;
+        }
+
+        // 備用：從舊的 API 取得
+        const fallbackResponse = await axios.get(`${API_BASE_URL}/api/elders`);
+        setElderList(fallbackResponse.data);
+      } catch (err) {
+        console.error('載入長者名單失敗:', err);
+        // 嘗試從 LocalStorage 讀取作為備用
         const savedElders = localStorage.getItem('settings_elders');
         if (savedElders) {
           const parsed = JSON.parse(savedElders);
@@ -42,13 +55,7 @@ function ActivityForm() {
             return;
           }
         }
-
-        // LocalStorage 沒有資料，從 API 取得
-        const response = await axios.get(`${API_BASE_URL}/api/elders`);
-        setElderList(response.data);
-      } catch (err) {
-        console.error('載入長者名單失敗:', err);
-        setError('載入長者名單失敗，請至「系統設定」新增長者');
+        setError('載入長者名單失敗，請確認 Google Sheets 設定');
       } finally {
         setIsLoadingElders(false);
       }

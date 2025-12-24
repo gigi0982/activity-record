@@ -8,6 +8,7 @@ import QuarterlyStats from './components/QuarterlyStats';
 import ElderProfile from './components/ElderProfile';
 import ElderReport from './components/ElderReport';
 import ElderManagement from './components/ElderManagement';
+import ActivitySettings from './components/ActivitySettings';
 import MeetingList from './components/MeetingList';
 import MeetingForm from './components/MeetingForm';
 import PlanEditor from './components/PlanEditor';
@@ -28,6 +29,7 @@ function App() {
           <Route path="/elder/:name" element={<ElderProfile />} />
           <Route path="/elder-report/:elderName" element={<ElderReport />} />
           <Route path="/elder-management" element={<ElderManagement />} />
+          <Route path="/activity-settings" element={<ActivitySettings />} />
           <Route path="/meetings" element={<MeetingList />} />
           <Route path="/meetings/new" element={<MeetingForm />} />
           <Route path="/meetings/:id" element={<MeetingForm />} />

@@ -89,18 +89,10 @@ function Navigation() {
             </li>
             <li className="nav-item">
               <Link
-                className={`nav-link ${location.pathname === '/elder-management' ? 'active' : ''}`}
-                to="/elder-management"
+                className={`nav-link ${location.pathname === '/settings' ? 'active' : ''}`}
+                to="/settings"
               >
-                👴 長者管理
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link
-                className={`nav-link ${location.pathname === '/activity-settings' ? 'active' : ''}`}
-                to="/activity-settings"
-              >
-                🎯 活動設定
+                ⚙️ 系統設定
               </Link>
             </li>
           </ul>

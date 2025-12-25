@@ -98,8 +98,19 @@ function QuickEntry() {
         setIsSaving(true);
         try {
             const attendees = elders.filter(e => e.attended).map(e => e.name);
+            const feeData = { date: todayStr, participants: elders, lunchOrders, stats };
+
+            // 儲存到 localStorage
             localStorage.setItem('last_attendance', JSON.stringify(attendees));
-            localStorage.setItem(`fee_record_${todayStr}`, JSON.stringify({ date: todayStr, participants: elders, lunchOrders, stats }));
+            localStorage.setItem(`fee_record_${todayStr}`, JSON.stringify(feeData));
+
+            // 同步到後端 API
+            try {
+                await axios.post(`${API_BASE_URL}/api/fee-records`, feeData);
+            } catch (apiError) {
+                console.log('後端同步失敗，資料已存在本地', apiError);
+            }
+
             setSuccessMessage(`出席 ${stats.attended} 人\n長者接送：${stats.pickupAM}/${stats.pickupPM}\n外勞接送：${stats.caregiverAM}/${stats.caregiverPM}`);
             setShowSuccess(true);
             setTimeout(() => setShowSuccess(false), 3000);

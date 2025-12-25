@@ -782,6 +782,139 @@ app.post('/api/plans', async (req, res) => {
   }
 });
 
+// ========== 收費紀錄 API ==========
+
+// 測試用收費資料
+let testFeeRecords = {};
+
+// 寫入收費紀錄到 Google Sheet
+async function writeFeeToGoogleSheet(feeData) {
+  try {
+    if (!auth) return null;
+    const authClient = await auth.getClient();
+    const values = [];
+
+    // 為每位參與者建立一行資料
+    (feeData.participants || []).forEach(p => {
+      if (!p.attended) return;
+      values.push([
+        feeData.date,
+        p.name,
+        p.attended ? '是' : '',
+        p.pickupAM ? '是' : '',
+        p.pickupPM ? '是' : '',
+        p.lunch ? '是' : '',
+        p.caregiverAM ? '是' : '',
+        p.caregiverPM ? '是' : '',
+        p.caregiverLunch ? '是' : '',
+      ]);
+    });
+
+    if (values.length === 0) return null;
+
+    const request = {
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      range: '收費紀錄!A:I',
+      valueInputOption: 'RAW',
+      auth: authClient,
+      resource: { values },
+    };
+
+    const response = await sheets.spreadsheets.values.append(request);
+    console.log('成功寫入收費紀錄到 Google Sheet');
+    return response;
+  } catch (error) {
+    console.error('寫入收費紀錄失敗:', error);
+    return null;
+  }
+}
+
+// 儲存收費紀錄
+app.post('/api/fee-records', async (req, res) => {
+  try {
+    const feeData = req.body;
+    const { date, participants, lunchOrders, stats } = feeData;
+
+    if (!date) {
+      return res.status(400).json({ error: '缺少日期' });
+    }
+
+    // 儲存到 Firestore
+    if (db) {
+      await db.collection('feeRecords').doc(date).set({
+        date,
+        participants,
+        lunchOrders,
+        stats,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    // 同步到 Google Sheets
+    await writeFeeToGoogleSheet(feeData);
+
+    // 測試模式備份
+    testFeeRecords[date] = feeData;
+
+    res.json({ success: true, message: '收費紀錄已儲存' });
+  } catch (error) {
+    console.error('儲存收費紀錄錯誤:', error);
+    res.status(500).json({ error: '無法儲存收費紀錄' });
+  }
+});
+
+// 取得單日收費紀錄
+app.get('/api/fee-records/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+
+    if (db) {
+      const doc = await db.collection('feeRecords').doc(date).get();
+      if (doc.exists) {
+        return res.json(doc.data());
+      }
+    }
+
+    // 測試模式
+    if (testFeeRecords[date]) {
+      return res.json(testFeeRecords[date]);
+    }
+
+    res.json(null);
+  } catch (error) {
+    console.error('取得收費紀錄錯誤:', error);
+    res.status(500).json({ error: '無法取得收費紀錄' });
+  }
+});
+
+// 取得月份收費紀錄列表
+app.get('/api/fee-records', async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const prefix = `${year}-${String(month).padStart(2, '0')}`;
+
+    if (db) {
+      const snapshot = await db.collection('feeRecords')
+        .where('date', '>=', `${prefix}-01`)
+        .where('date', '<=', `${prefix}-31`)
+        .orderBy('date', 'asc')
+        .get();
+
+      const records = snapshot.docs.map(doc => doc.data());
+      return res.json(records);
+    }
+
+    // 測試模式
+    const records = Object.values(testFeeRecords)
+      .filter(r => r.date && r.date.startsWith(prefix))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    res.json(records);
+  } catch (error) {
+    console.error('取得月份收費紀錄錯誤:', error);
+    res.status(500).json({ error: '無法取得月份收費紀錄' });
+  }
+});
+
 // 健康檢查
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });

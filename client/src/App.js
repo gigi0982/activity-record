@@ -1,6 +1,7 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Navigation from './components/Navigation';
+import Dashboard from './components/Dashboard';
 import ActivityForm from './components/ActivityForm';
 import ActivityList from './components/ActivityList';
 import Statistics from './components/Statistics';
@@ -19,12 +20,17 @@ import FeeSettings from './components/FeeSettings';
 import FeeReport from './components/FeeReport';
 
 function App() {
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+
   return (
     <div className="App">
-      <Navigation />
-      <div className="container mt-4">
+      {/* 首頁不顯示導航列 */}
+      {!isHomePage && <Navigation />}
+      <div className={isHomePage ? '' : 'container mt-4'}>
         <Routes>
-          <Route path="/" element={<ActivityList />} />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/activities" element={<ActivityList />} />
           <Route path="/add" element={<ActivityForm />} />
           <Route path="/stats" element={<Statistics />} />
           <Route path="/quarterly" element={<QuarterlyStats />} />

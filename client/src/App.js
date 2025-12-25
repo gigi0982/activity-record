@@ -18,6 +18,7 @@ import PlanTracking from './components/PlanTracking';
 import FeeRegistration from './components/FeeRegistration';
 import FeeSettings from './components/FeeSettings';
 import FeeReport from './components/FeeReport';
+import QuickEntry from './components/QuickEntry';
 
 function App() {
   const location = useLocation();
@@ -47,6 +48,7 @@ function App() {
           <Route path="/fee" element={<FeeRegistration />} />
           <Route path="/fee-settings" element={<FeeSettings />} />
           <Route path="/fee-report" element={<FeeReport />} />
+          <Route path="/quick" element={<QuickEntry />} />
         </Routes>
       </div>
     </div>

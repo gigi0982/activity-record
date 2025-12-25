@@ -9,14 +9,15 @@ function Dashboard() {
 
     // 主要功能（每日使用）
     const mainFunctions = [
-        { path: '/add', icon: '📝', title: '新增活動', subtitle: '紀錄', color: '#4CAF50' },
-        { path: '/fee', icon: '💰', title: '收費登記', subtitle: '接送/便當', color: '#FF9800' },
+        { path: '/quick', icon: '⚡', title: '今日快速登記', subtitle: '出席+接送+便當', color: '#E91E63' },
+        { path: '/add', icon: '📝', title: '新增活動', subtitle: '詳細紀錄', color: '#4CAF50' },
         { path: '/activities', icon: '📋', title: '活動列表', subtitle: '查看紀錄', color: '#2196F3' },
         { path: '/settings', icon: '👥', title: '長者名單', subtitle: '系統設定', color: '#9C27B0' },
     ];
 
     // 進階功能（管理者使用）
     const advancedFunctions = [
+        { path: '/fee', icon: '💰', title: '收費登記', color: '#FF9800' },
         { path: '/plans', icon: '📅', title: '每週課表', color: '#607D8B' },
         { path: '/quarterly', icon: '📊', title: '季度報表', color: '#009688' },
         { path: '/meetings', icon: '📝', title: '會議紀錄', color: '#795548' },

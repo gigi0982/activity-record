@@ -89,6 +89,14 @@ function Navigation() {
             </li>
             <li className="nav-item">
               <Link
+                className={`nav-link ${location.pathname === '/fee' || location.pathname.startsWith('/fee') ? 'active' : ''}`}
+                to="/fee"
+              >
+                💰 收費登記
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link
                 className={`nav-link ${location.pathname === '/settings' ? 'active' : ''}`}
                 to="/settings"
               >

@@ -14,6 +14,9 @@ import PlanEditor from './components/PlanEditor';
 import EvaluationReport from './components/EvaluationReport';
 import QuarterlyComparison from './components/QuarterlyComparison';
 import PlanTracking from './components/PlanTracking';
+import FeeRegistration from './components/FeeRegistration';
+import FeeSettings from './components/FeeSettings';
+import FeeReport from './components/FeeReport';
 
 function App() {
   return (
@@ -35,6 +38,9 @@ function App() {
           <Route path="/tracking" element={<PlanTracking />} />
           <Route path="/comparison" element={<QuarterlyComparison />} />
           <Route path="/evaluation" element={<EvaluationReport />} />
+          <Route path="/fee" element={<FeeRegistration />} />
+          <Route path="/fee-settings" element={<FeeSettings />} />
+          <Route path="/fee-report" element={<FeeReport />} />
         </Routes>
       </div>
     </div>

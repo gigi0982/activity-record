@@ -8,8 +8,10 @@ function FeeSettings() {
 
     // 費率設定
     const [rates, setRates] = useState({
-        elderTransport: 90,
-        selfPayTransport: 100,
+        elderTransport: 90,     // 長者接送
+        elderMeal: 70,          // 長者餐費
+        caregiverTransport: 100, // 外勞接送
+        caregiverMeal: 100,     // 外勞餐費
     });
 
     // 載入設定
@@ -26,7 +28,7 @@ function FeeSettings() {
 
         const savedRates = localStorage.getItem('transport_rates');
         if (savedRates) {
-            setRates(JSON.parse(savedRates));
+            setRates({ ...rates, ...JSON.parse(savedRates) });
         }
     }, []);
 
@@ -75,18 +77,19 @@ function FeeSettings() {
         <div>
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h2><i className="fas fa-cog me-2"></i>收費設定</h2>
-                <Link to="/fee" className="btn btn-secondary">← 返回收費登記</Link>
+                <Link to="/" className="btn btn-secondary">← 返回首頁</Link>
             </div>
 
             {/* 費率設定 */}
             <div className="card mb-4">
                 <div className="card-header bg-success text-white">
-                    <i className="fas fa-car me-2"></i>駕駛薪資費率
+                    <i className="fas fa-dollar-sign me-2"></i>費率設定
                 </div>
                 <div className="card-body">
-                    <div className="row">
+                    <h6 className="mb-3">👵 長者費率</h6>
+                    <div className="row mb-4">
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">長者接送（每人每趟）</label>
+                            <label className="form-label">接送費（每人每趟）</label>
                             <div className="input-group">
                                 <input
                                     type="number"
@@ -96,22 +99,49 @@ function FeeSettings() {
                                 />
                                 <span className="input-group-text">元</span>
                             </div>
-                            <small className="text-muted">駕駛載送長者的薪資</small>
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">自費接送（每人每趟）</label>
+                            <label className="form-label">餐費（每人每次）</label>
                             <div className="input-group">
                                 <input
                                     type="number"
                                     className="form-control"
-                                    value={rates.selfPayTransport}
-                                    onChange={(e) => setRates({ ...rates, selfPayTransport: parseInt(e.target.value) || 0 })}
+                                    value={rates.elderMeal}
+                                    onChange={(e) => setRates({ ...rates, elderMeal: parseInt(e.target.value) || 0 })}
                                 />
                                 <span className="input-group-text">元</span>
                             </div>
-                            <small className="text-muted">外勞/自費者的接送費用（同時計入駕駛薪資）</small>
                         </div>
                     </div>
+
+                    <h6 className="mb-3">👷 外勞/自費費率</h6>
+                    <div className="row mb-3">
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">接送費（每人每趟）</label>
+                            <div className="input-group">
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    value={rates.caregiverTransport}
+                                    onChange={(e) => setRates({ ...rates, caregiverTransport: parseInt(e.target.value) || 0 })}
+                                />
+                                <span className="input-group-text">元</span>
+                            </div>
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">餐費（每人每次）</label>
+                            <div className="input-group">
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    value={rates.caregiverMeal}
+                                    onChange={(e) => setRates({ ...rates, caregiverMeal: parseInt(e.target.value) || 0 })}
+                                />
+                                <span className="input-group-text">元</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <button className="btn btn-success" onClick={saveRates}>
                         <i className="fas fa-save me-1"></i>儲存費率
                     </button>

@@ -17,10 +17,11 @@ function Dashboard() {
 
     // 進階功能（管理者使用）
     const advancedFunctions = [
+        { path: '/fee-history', icon: '📜', title: '歷史紀錄', color: '#795548' },
         { path: '/fee', icon: '💰', title: '收費登記', color: '#FF9800' },
         { path: '/plans', icon: '📅', title: '每週課表', color: '#607D8B' },
         { path: '/quarterly', icon: '📊', title: '季度報表', color: '#009688' },
-        { path: '/meetings', icon: '📝', title: '會議紀錄', color: '#795548' },
+        { path: '/meetings', icon: '📝', title: '會議紀錄', color: '#455A64' },
         { path: '/comparison', icon: '📈', title: '季度比較', color: '#3F51B5' },
         { path: '/evaluation', icon: '📋', title: '評鑑報告', color: '#E91E63' },
         { path: '/fee-report', icon: '💵', title: '月結報表', color: '#FF5722' },

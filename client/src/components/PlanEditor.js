@@ -15,15 +15,19 @@ function PlanEditor() {
     const [selectedQuarter, setSelectedQuarter] = useState(getQuarter());
     const [topicList, setTopicList] = useState([]);
     const [isLoadingTopics, setIsLoadingTopics] = useState(true);
+    const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
+    const [cloudSyncStatus, setCloudSyncStatus] = useState(''); // 'synced', 'local', 'error'
 
     // 每週課表（週一到週五）
-    const [weeklySchedule, setWeeklySchedule] = useState({
+    const emptySchedule = {
         monday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
         tuesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
         wednesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
         thursday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
         friday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } }
-    });
+    };
+
+    const [weeklySchedule, setWeeklySchedule] = useState(emptySchedule);
 
     const dayNames = {
         monday: '週一',
@@ -48,22 +52,55 @@ function PlanEditor() {
         fetchTopics();
     }, []);
 
-    // 載入儲存的課表
-    useEffect(() => {
+    // 載入課表 - 優先從 Google Sheets，失敗時從 localStorage
+    const loadSchedule = async () => {
+        setIsLoadingSchedule(true);
         const key = `weekly_schedule_${selectedQuarter}`;
+
+        try {
+            // 嘗試從 Google Sheets 載入
+            const response = await axios.get(`${API_BASE_URL}/api/sheets-schedule?quarter=${selectedQuarter}`);
+
+            if (response.data.success && response.data.schedule) {
+                // 檢查是否有任何課程資料
+                const hasData = Object.values(response.data.schedule).some(day =>
+                    day.am?.topic || day.pm?.topic
+                );
+
+                if (hasData) {
+                    setWeeklySchedule(response.data.schedule);
+                    setCloudSyncStatus('synced');
+                    // 同時備份到 localStorage
+                    localStorage.setItem(key, JSON.stringify(response.data.schedule));
+                } else {
+                    // 雲端沒資料，嘗試 localStorage
+                    loadFromLocalStorage(key);
+                }
+            } else {
+                // API 回傳失敗，使用 localStorage
+                loadFromLocalStorage(key);
+            }
+        } catch (err) {
+            console.error('從雲端載入失敗，使用本地儲存:', err);
+            loadFromLocalStorage(key);
+        } finally {
+            setIsLoadingSchedule(false);
+        }
+    };
+
+    const loadFromLocalStorage = (key) => {
         const saved = localStorage.getItem(key);
         if (saved) {
             setWeeklySchedule(JSON.parse(saved));
+            setCloudSyncStatus('local');
         } else {
-            // 重置為空
-            setWeeklySchedule({
-                monday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
-                tuesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
-                wednesday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
-                thursday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } },
-                friday: { am: { topic: '', activityName: '', materials: '' }, pm: { topic: '', activityName: '', materials: '' } }
-            });
+            setWeeklySchedule(emptySchedule);
+            setCloudSyncStatus('local');
         }
+    };
+
+    useEffect(() => {
+        loadSchedule();
     }, [selectedQuarter]);
 
     // 更新課表項目
@@ -169,9 +206,24 @@ function PlanEditor() {
                 </div>
             </div>
 
-            <div className="alert alert-info mb-4">
-                <strong>💡 說明：</strong>設定好每週固定課表後，本季每週都會照此安排執行。
-                <span className="badge bg-primary ms-2">{countCourses()} 堂課/週</span>
+            <div className="alert alert-info mb-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>💡 說明：</strong>設定好每週固定課表後，本季每週都會照此安排執行。
+                    <span className="badge bg-primary ms-2">{countCourses()} 堂課/週</span>
+                    {cloudSyncStatus === 'synced' && (
+                        <span className="badge bg-success ms-2">☁️ 雲端同步</span>
+                    )}
+                    {cloudSyncStatus === 'local' && (
+                        <span className="badge bg-warning text-dark ms-2">💾 本地儲存</span>
+                    )}
+                </div>
+                <button
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={loadSchedule}
+                    disabled={isLoadingSchedule}
+                >
+                    {isLoadingSchedule ? '載入中...' : '🔄 重新整理'}
+                </button>
             </div>
 
             {/* 每週課表 */}

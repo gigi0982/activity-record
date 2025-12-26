@@ -434,6 +434,62 @@ app.get('/api/elders', async (req, res) => {
   }
 });
 
+// 別名路由 - 相容前端 /api/sheets-elders 呼叫
+app.get('/api/sheets-elders', async (req, res) => {
+  try {
+    if (!auth) {
+      // 測試模式：返回範例長者名單
+      const testElders = [
+        { id: 'E1', name: '吳王素香', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E2', name: '彭李瑞月', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E3', name: '賴葉玉美', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E4', name: '黃張美', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '' },
+        { id: 'E5', name: '曹阿明', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '需多關注' },
+        { id: 'E6', name: '黃陳阿雪', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E7', name: '黃素蘭', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '' },
+        { id: 'E8', name: '李季錦', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '' },
+        { id: 'E9', name: '溫素花', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E10', name: '郭田水', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '' },
+        { id: 'E11', name: '張薇芳', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E12', name: '羅林美惠', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E13', name: '游吳阿守', level: 'C', levelDesc: '重度', scoreRange: '2-3', notes: '需較多協助' },
+        { id: 'E14', name: '陳羅素玉', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '' },
+        { id: 'E15', name: '吳阿塗', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '' },
+        { id: 'E16', name: '楊美麗', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E17', name: '王諶梅子', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E18', name: '吳麗紅', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' },
+        { id: 'E19', name: '林明珠', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '' },
+        { id: 'E20', name: '林維新', level: 'B', levelDesc: '中度', scoreRange: '3-4', notes: '' },
+        { id: 'E21', name: '游進煌', level: 'A', levelDesc: '輕度', scoreRange: '4-5', notes: '' }
+      ];
+      return res.json(testElders);
+    }
+
+    // 正式模式：從 Google Sheets 讀取長者名單
+    const authClient = await auth.getClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      range: '長者名單!A:E',
+      auth: authClient,
+    });
+
+    const rows = response.data.values || [];
+    const elders = rows.slice(1).map((row, index) => ({
+      id: `E${index + 1}`,
+      name: row[0] || '',
+      level: row[1] || 'A',
+      levelDesc: row[2] || '',
+      scoreRange: row[3] || '',
+      notes: row[4] || ''
+    })).filter(elder => elder.name.trim() !== '');
+
+    res.json(elders);
+  } catch (error) {
+    console.error('取得長者名單錯誤:', error);
+    res.status(500).json({ error: '無法取得長者名單' });
+  }
+});
+
 // 取得季度統計報表
 app.get('/api/stats/quarterly', async (req, res) => {
   try {

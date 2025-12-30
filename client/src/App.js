@@ -4,6 +4,7 @@ import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import ActivityForm from './components/ActivityForm';
 import ActivityList from './components/ActivityList';
+import ActivityTopics from './components/ActivityTopics';
 import Statistics from './components/Statistics';
 import QuarterlyStats from './components/QuarterlyStats';
 import ElderProfile from './components/ElderProfile';
@@ -38,6 +39,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/activities" element={<ActivityList />} />
+          <Route path="/topics" element={<ActivityTopics />} />
           <Route path="/add" element={<ActivityForm />} />
           <Route path="/stats" element={<Statistics />} />
           <Route path="/quarterly" element={<QuarterlyStats />} />

@@ -27,6 +27,7 @@ function Dashboard() {
             items: [
                 { path: '/activities', icon: '📋', title: '活動列表' },
                 { path: '/plans', icon: '📅', title: '每週課表' },
+                { path: '/topics', icon: '🏷️', title: '活動主題' },
             ]
         },
         {

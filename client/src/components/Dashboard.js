@@ -20,23 +20,42 @@ function Dashboard() {
     ];
 
     // 進階功能（按類別分組）
-    const advancedFunctions = [
-        // 活動相關
-        { path: '/activities', icon: '📋', title: '活動列表', color: '#2196F3' },
-        { path: '/fee-report', icon: '💵', title: '月結報表', color: '#FF5722' },
-        { path: '/fee-settings', icon: '⚙️', title: '收費設定', color: '#9E9E9E' },
-        // 歷史紀錄
-        { path: '/fee-history', icon: '📜', title: '歷史紀錄', color: '#795548' },
-        // 人員相關
-        { path: '/settings', icon: '👥', title: '長者名單', color: '#9C27B0' },
-        // 報表相關
-        { path: '/quarterly', icon: '📊', title: '季度報表', color: '#009688' },
-        { path: '/comparison', icon: '📈', title: '季度比較', color: '#3F51B5' },
-        { path: '/evaluation', icon: '📋', title: '評鑑報告', color: '#673AB7' },
-        // 規劃相關
-        { path: '/plans', icon: '📅', title: '每週課表', color: '#607D8B' },
-        { path: '/meetings', icon: '📝', title: '會議紀錄', color: '#455A64' },
-        { path: '/tracking', icon: '✓', title: '執行追蹤', color: '#00BCD4' },
+    const functionCategories = [
+        {
+            title: '📝 活動管理',
+            color: '#4CAF50',
+            items: [
+                { path: '/activities', icon: '📋', title: '活動列表' },
+                { path: '/plans', icon: '📅', title: '每週課表' },
+            ]
+        },
+        {
+            title: '👴 長者管理',
+            color: '#9C27B0',
+            items: [
+                { path: '/settings', icon: '👥', title: '長者名單' },
+            ]
+        },
+        {
+            title: '💰 費用管理',
+            color: '#FF9800',
+            items: [
+                { path: '/fee-report', icon: '💵', title: '月結報表' },
+                { path: '/fee-history', icon: '📜', title: '歷史紀錄' },
+                { path: '/fee-settings', icon: '⚙️', title: '收費設定' },
+            ]
+        },
+        {
+            title: '📊 評鑑資料',
+            color: '#2196F3',
+            items: [
+                { path: '/quarterly', icon: '📊', title: '季度報表' },
+                { path: '/comparison', icon: '📈', title: '季度比較' },
+                { path: '/evaluation', icon: '📋', title: '評鑑報告' },
+                { path: '/meetings', icon: '📝', title: '會議紀錄' },
+                { path: '/tracking', icon: '✓', title: '執行追蹤' },
+            ]
+        }
     ];
 
     return (
@@ -140,41 +159,65 @@ function Dashboard() {
                     </button>
                 </div>
 
-                {/* 進階功能區 - 可展開 */}
+                {/* 進階功能區 - 可展開 - 分類顯示 */}
                 {showMore && (
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gap: '10px',
-                        animation: 'fadeIn 0.3s ease-in-out'
-                    }}>
-                        {advancedFunctions.map((func, index) => (
-                            <Link
-                                key={index}
-                                to={func.path}
-                                style={{
+                    <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
+                        {functionCategories.map((category, catIndex) => (
+                            <div key={catIndex} style={{ marginBottom: '20px' }}>
+                                {/* 類別標題 */}
+                                <div style={{
                                     display: 'flex',
-                                    flexDirection: 'column',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '15px 10px',
-                                    backgroundColor: '#f5f5f5',
-                                    color: '#333',
-                                    borderRadius: '10px',
-                                    textDecoration: 'none',
-                                    border: '1px solid #ddd',
-                                    transition: 'background-color 0.2s',
-                                }}
-                                onMouseOver={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#e0e0e0';
-                                }}
-                                onMouseOut={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#f5f5f5';
-                                }}
-                            >
-                                <span style={{ fontSize: '1.5rem', marginBottom: '5px' }}>{func.icon}</span>
-                                <span style={{ fontSize: '0.8rem', textAlign: 'center' }}>{func.title}</span>
-                            </Link>
+                                    marginBottom: '10px',
+                                    paddingBottom: '8px',
+                                    borderBottom: `2px solid ${category.color}`
+                                }}>
+                                    <span style={{
+                                        fontSize: '1rem',
+                                        fontWeight: '600',
+                                        color: category.color
+                                    }}>
+                                        {category.title}
+                                    </span>
+                                </div>
+                                {/* 功能按鈕網格 - 響應式 */}
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))',
+                                    gap: '10px'
+                                }}>
+                                    {category.items.map((func, index) => (
+                                        <Link
+                                            key={index}
+                                            to={func.path}
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '15px 10px',
+                                                backgroundColor: '#f5f5f5',
+                                                color: '#333',
+                                                borderRadius: '10px',
+                                                textDecoration: 'none',
+                                                border: `1px solid ${category.color}22`,
+                                                transition: 'all 0.2s',
+                                            }}
+                                            onMouseOver={(e) => {
+                                                e.currentTarget.style.backgroundColor = `${category.color}15`;
+                                                e.currentTarget.style.borderColor = category.color;
+                                            }}
+                                            onMouseOut={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#f5f5f5';
+                                                e.currentTarget.style.borderColor = `${category.color}22`;
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '1.5rem', marginBottom: '5px' }}>{func.icon}</span>
+                                            <span style={{ fontSize: '0.8rem', textAlign: 'center' }}>{func.title}</span>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
                     </div>
                 )}

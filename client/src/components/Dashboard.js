@@ -15,22 +15,24 @@ function Dashboard() {
     const mainFunctions = [
         { path: '/quick', icon: '⚡', title: '今日快速登記', subtitle: '出席+接送', color: 'linear-gradient(135deg, #E91E63 0%, #C2185B 100%)' },
         { path: '/add', icon: '📝', title: '新增活動', subtitle: '詳細紀錄', color: 'linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)' },
-        { path: '/activities', icon: '📋', title: '活動列表', subtitle: '查看紀錄', color: 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)' },
-        { path: '/fee-history', icon: '📜', title: '歷史紀錄', subtitle: '查詢/修改', color: 'linear-gradient(135deg, #795548 0%, #5D4037 100%)' },
+        { path: '/expense', icon: '💳', title: '支出登記', subtitle: '費用管理', color: 'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)' },
+        { path: '/health', icon: '❤️', title: '健康紀錄', subtitle: '血壓體溫', color: 'linear-gradient(135deg, #E91E63 0%, #AD1457 100%)' },
     ];
 
     // 進階功能（按類別分組）
     const advancedFunctions = [
-        // 支出相關
-        { path: '/expense', icon: '💳', title: '支出登記', color: '#FF9800' },
+        // 活動相關
+        { path: '/activities', icon: '📋', title: '活動列表', color: '#2196F3' },
         { path: '/fee-report', icon: '💵', title: '月結報表', color: '#FF5722' },
         { path: '/fee-settings', icon: '⚙️', title: '收費設定', color: '#9E9E9E' },
+        // 歷史紀錄
+        { path: '/fee-history', icon: '📜', title: '歷史紀錄', color: '#795548' },
         // 人員相關
         { path: '/settings', icon: '👥', title: '長者名單', color: '#9C27B0' },
         // 報表相關
         { path: '/quarterly', icon: '📊', title: '季度報表', color: '#009688' },
         { path: '/comparison', icon: '📈', title: '季度比較', color: '#3F51B5' },
-        { path: '/evaluation', icon: '📋', title: '評鑑報告', color: '#E91E63' },
+        { path: '/evaluation', icon: '📋', title: '評鑑報告', color: '#673AB7' },
         // 規劃相關
         { path: '/plans', icon: '📅', title: '每週課表', color: '#607D8B' },
         { path: '/meetings', icon: '📝', title: '會議紀錄', color: '#455A64' },

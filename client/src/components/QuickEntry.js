@@ -33,10 +33,10 @@ function QuickEntry() {
                     attended: lastAttendees.includes(e.name),
                     pickupAM: lastAttendees.includes(e.name),
                     pickupPM: lastAttendees.includes(e.name),
-                    lunch: lastAttendees.includes(e.name),
+                    mealFee: false,  // 長者餐費
                     caregiverAM: false,
                     caregiverPM: false,
-                    caregiverLunch: false,
+                    caregiverMeal: false,  // 外勞餐費（改名）
                 })));
 
                 const quarter = `${today.getFullYear()}-Q${Math.ceil((today.getMonth() + 1) / 3)}`;
@@ -69,6 +69,26 @@ function QuickEntry() {
         setElders(prev => prev.map(e => ({ ...e, [field]: !allChecked })));
     };
 
+    // 只針對已出席的人全選接送
+    const toggleAllPickupForAttended = () => {
+        const attendedElders = elders.filter(e => e.attended);
+        const allPickup = attendedElders.every(e => e.pickupAM && e.pickupPM);
+        setElders(prev => prev.map(e => {
+            if (!e.attended) return e;
+            return { ...e, pickupAM: !allPickup, pickupPM: !allPickup };
+        }));
+    };
+
+    // 只針對已出席的人全選用餐
+    const toggleAllMealForAttended = () => {
+        const attendedElders = elders.filter(e => e.attended);
+        const allMeal = attendedElders.every(e => e.mealFee);
+        setElders(prev => prev.map(e => {
+            if (!e.attended) return e;
+            return { ...e, mealFee: !allMeal };
+        }));
+    };
+
     const toggleAttended = (index) => {
         setElders(prev => prev.map((e, i) => {
             if (i !== index) return e;
@@ -76,8 +96,8 @@ function QuickEntry() {
             return {
                 ...e,
                 attended: newAttended,
-                pickupAM: newAttended, pickupPM: newAttended, lunch: newAttended,
-                caregiverAM: false, caregiverPM: false, caregiverLunch: false,
+                pickupAM: newAttended, pickupPM: newAttended, mealFee: false,
+                caregiverAM: false, caregiverPM: false, caregiverMeal: false,
             };
         }));
     };
@@ -88,10 +108,10 @@ function QuickEntry() {
         attended: elders.filter(e => e.attended).length,
         pickupAM: elders.filter(e => e.pickupAM).length,
         pickupPM: elders.filter(e => e.pickupPM).length,
-        lunch: elders.filter(e => e.lunch).length,
+        mealFee: elders.filter(e => e.mealFee).length,
         caregiverAM: elders.filter(e => e.caregiverAM).length,
         caregiverPM: elders.filter(e => e.caregiverPM).length,
-        caregiverLunch: elders.filter(e => e.caregiverLunch).length,
+        caregiverMeal: elders.filter(e => e.caregiverMeal).length,
     };
 
     const handleSave = async () => {
@@ -135,11 +155,11 @@ function QuickEntry() {
             onClick={!disabled ? onChange : undefined}
             style={{
                 width: '32px', height: '32px', borderRadius: '6px',
-                border: disabled ? '2px solid #ddd' : `2px solid ${color}`,
+                border: disabled ? '2px solid #eee' : `2px solid ${color}`,
                 backgroundColor: checked ? color : 'white',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: disabled ? 'not-allowed' : 'pointer',
-                opacity: disabled ? 0.4 : 1,
+                opacity: disabled ? 0.2 : 1,
             }}
         >
             {checked && <span style={{ color: 'white', fontSize: '18px', fontWeight: 'bold' }}>✓</span>}
@@ -174,25 +194,31 @@ function QuickEntry() {
             </div>
 
             {/* 快速全選區 */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '15px' }}>
                 <button onClick={() => toggleAll('attended')} style={{
-                    padding: '15px', fontSize: '16px', fontWeight: 'bold',
+                    padding: '15px', fontSize: '14px', fontWeight: 'bold',
                     backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '10px',
                 }}>
                     ✓ 全選出席
                 </button>
-                <button onClick={() => { toggleAll('pickupAM'); toggleAll('pickupPM'); }} style={{
-                    padding: '15px', fontSize: '16px', fontWeight: 'bold',
+                <button onClick={toggleAllPickupForAttended} style={{
+                    padding: '15px', fontSize: '14px', fontWeight: 'bold',
                     backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: '10px',
                 }}>
                     🚐 全選接送
+                </button>
+                <button onClick={toggleAllMealForAttended} style={{
+                    padding: '15px', fontSize: '14px', fontWeight: 'bold',
+                    backgroundColor: '#FF9800', color: 'white', border: 'none', borderRadius: '10px',
+                }}>
+                    🍱 全選用餐
                 </button>
             </div>
 
             {/* 表頭 */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 36px 36px 36px 10px 36px 36px 36px',
+                gridTemplateColumns: '1fr 36px 36px 36px 36px 10px 36px 36px 36px',
                 gap: '4px', padding: '10px 8px',
                 backgroundColor: '#f0f0f0', borderRadius: '10px 10px 0 0',
                 fontWeight: 'bold', fontSize: '12px', textAlign: 'center'
@@ -201,10 +227,11 @@ function QuickEntry() {
                 <div style={{ color: '#4CAF50' }}>出席</div>
                 <div style={{ color: '#2196F3' }}>來</div>
                 <div style={{ color: '#9C27B0' }}>回</div>
+                <div style={{ color: '#FF9800' }}>餐</div>
                 <div></div>
                 <div style={{ color: '#FF5722' }}>外來</div>
                 <div style={{ color: '#E91E63' }}>外回</div>
-                <div style={{ color: '#FF9800' }}>外餐</div>
+                <div style={{ color: '#795548' }}>外餐</div>
             </div>
 
             {/* 長者列表 */}
@@ -214,7 +241,7 @@ function QuickEntry() {
                         key={elder.id || index}
                         style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 36px 36px 36px 10px 36px 36px 36px',
+                            gridTemplateColumns: '1fr 36px 36px 36px 36px 10px 36px 36px 36px',
                             gap: '4px', padding: '10px 8px',
                             borderBottom: '1px solid #eee',
                             alignItems: 'center',
@@ -225,43 +252,33 @@ function QuickEntry() {
                         <CheckBox checked={elder.attended} onChange={() => toggleAttended(index)} color="#4CAF50" />
                         <CheckBox checked={elder.pickupAM} onChange={() => toggle(index, 'pickupAM')} disabled={!elder.attended} color="#2196F3" />
                         <CheckBox checked={elder.pickupPM} onChange={() => toggle(index, 'pickupPM')} disabled={!elder.attended} color="#9C27B0" />
+                        <CheckBox checked={elder.mealFee} onChange={() => toggle(index, 'mealFee')} disabled={!elder.attended} color="#FF9800" />
                         <div style={{ width: '2px', height: '100%', backgroundColor: '#ddd', margin: '0 auto' }}></div>
                         <CheckBox checked={elder.caregiverAM} onChange={() => toggle(index, 'caregiverAM')} disabled={!elder.attended} color="#FF5722" />
                         <CheckBox checked={elder.caregiverPM} onChange={() => toggle(index, 'caregiverPM')} disabled={!elder.attended} color="#E91E63" />
-                        <CheckBox checked={elder.caregiverLunch} onChange={() => toggle(index, 'caregiverLunch')} disabled={!elder.attended} color="#FF9800" />
+                        <CheckBox checked={elder.caregiverMeal} onChange={() => toggle(index, 'caregiverMeal')} disabled={!elder.attended} color="#795548" />
                     </div>
                 ))}
             </div>
 
-            {/* 便當 */}
-            {lunchStores.length > 0 && (
-                <div style={{ marginBottom: '15px' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>🍱 便當訂購</div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {lunchStores.map(store => (
-                            <button key={store.id} onClick={() => addLunch(store)}
-                                style={{ padding: '10px 15px', backgroundColor: '#FFF3E0', border: '2px solid #FF9800', borderRadius: '10px', fontSize: '14px' }}>
-                                {store.name} ${store.price}
-                            </button>
-                        ))}
+            {/* 便當統計 - 簡化顯示 */}
+            <div style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#FFF8E1', borderRadius: '12px', border: '2px solid #FFB300' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#FF8F00' }}>🍱 今日便當統計</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', textAlign: 'center' }}>
+                    <div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#FF9800' }}>{stats.mealFee}</div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>長者用餐</div>
                     </div>
-                    {lunchOrders.length > 0 && (
-                        <div style={{ marginTop: '10px' }}>
-                            {lunchOrders.map((order, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                                    <span>{order.name}</span>
-                                    <input type="number" value={order.quantity} min="1"
-                                        onChange={(e) => setLunchOrders(prev => prev.map((o, idx) => idx === i ? { ...o, quantity: parseInt(e.target.value) || 0 } : o))}
-                                        style={{ width: '50px', padding: '5px', textAlign: 'center' }} />
-                                    <span>= ${order.price * order.quantity}</span>
-                                    <button onClick={() => setLunchOrders(prev => prev.filter((_, idx) => idx !== i))}
-                                        style={{ padding: '5px 10px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '5px' }}>✕</button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    <div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#795548' }}>{stats.caregiverMeal}</div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>外勞用餐</div>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#E65100' }}>{stats.mealFee + stats.caregiverMeal}</div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>便當總計</div>
+                    </div>
                 </div>
-            )}
+            </div>
 
             {/* 統計區 */}
             <div style={{

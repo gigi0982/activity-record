@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import PageHeader from './PageHeader';
+
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
 
 function FeeReport() {
     const today = new Date();
@@ -7,6 +10,7 @@ function FeeReport() {
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
     const [records, setRecords] = useState([]);
     const [personStats, setPersonStats] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [rates, setRates] = useState({
         elderTransport: 90,
         elderMeal: 70,
@@ -16,26 +20,52 @@ function FeeReport() {
 
     // 載入當月所有紀錄
     useEffect(() => {
-        // 先載入費率設定
-        const rateData = JSON.parse(localStorage.getItem('transport_rates') || '{}');
-        const currentRates = {
-            elderTransport: rateData.elderTransport || 90,
-            elderMeal: rateData.elderMeal || 70,
-            caregiverTransport: rateData.caregiverTransport || 100,
-            caregiverMeal: rateData.caregiverMeal || 100,
-        };
-        setRates(currentRates);
+        const loadAllData = async () => {
+            setIsLoading(true);
 
-        const loadRecords = () => {
+            // 先載入費率設定
+            let currentRates = { ...rates };
+            try {
+                const settingsRes = await fetch(`${GOOGLE_SCRIPT_URL}?action=getSettings`);
+                const settingsData = await settingsRes.json();
+                if (settingsData && settingsData.rates) {
+                    currentRates = { ...currentRates, ...settingsData.rates };
+                }
+            } catch (err) {
+                const rateData = JSON.parse(localStorage.getItem('transport_rates') || '{}');
+                currentRates = {
+                    elderTransport: rateData.elderTransport || 90,
+                    elderMeal: rateData.elderMeal || 70,
+                    caregiverTransport: rateData.caregiverTransport || 100,
+                    caregiverMeal: rateData.caregiverMeal || 100,
+                };
+            }
+            setRates(currentRates);
+
             const monthRecords = [];
-            const personMap = {}; // 個人統計
+            const personMap = {};
             const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
 
+            // 嘗試從 Google Sheets 讀取每日紀錄
             for (let day = 1; day <= daysInMonth; day++) {
                 const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const saved = localStorage.getItem(`fee_record_${dateStr}`);
-                if (saved) {
-                    const record = JSON.parse(saved);
+
+                let record = null;
+                try {
+                    const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getFeeRecord&date=${dateStr}`);
+                    const data = await res.json();
+                    if (data && data.participants) {
+                        record = data;
+                    }
+                } catch (err) { }
+
+                // 備援：從 localStorage 讀取
+                if (!record) {
+                    const saved = localStorage.getItem(`fee_record_${dateStr}`);
+                    if (saved) record = JSON.parse(saved);
+                }
+
+                if (record) {
                     monthRecords.push({
                         date: dateStr,
                         ...record.stats,
@@ -50,37 +80,29 @@ function FeeReport() {
                         if (!personMap[p.name]) {
                             personMap[p.name] = {
                                 name: p.name,
-                                trips: 0,           // 長者趟次（來+回）
-                                mealCount: 0,       // 長者餐次
-                                caregiverTrips: 0,  // 外勞趟次
-                                caregiverMeals: 0,  // 外勞餐次
-                                transportFee: 0,    // 長者車費
-                                mealFeeAmount: 0,   // 長者餐費
-                                caregiverTransportFee: 0, // 外勞車費
-                                caregiverMealFee: 0,      // 外勞餐費
+                                trips: 0,
+                                mealCount: 0,
+                                caregiverTrips: 0,
+                                caregiverMeals: 0,
+                                transportFee: 0,
+                                mealFeeAmount: 0,
+                                caregiverTransportFee: 0,
+                                caregiverMealFee: 0,
                             };
                         }
 
                         const person = personMap[p.name];
-
-                        // 長者接送
                         if (p.pickupAM) person.trips++;
                         if (p.pickupPM) person.trips++;
-
-                        // 長者用餐
                         if (p.lunch) person.mealCount++;
-
-                        // 外勞接送
                         if (p.caregiverAM) person.caregiverTrips++;
                         if (p.caregiverPM) person.caregiverTrips++;
-
-                        // 外勞餐費
                         if (p.caregiverLunch) person.caregiverMeals++;
                     });
                 }
             }
 
-            // 計算費用 - 使用四種費率
+            // 計算費用
             Object.values(personMap).forEach(p => {
                 p.transportFee = p.trips * currentRates.elderTransport;
                 p.mealFeeAmount = p.mealCount * currentRates.elderMeal;
@@ -92,9 +114,10 @@ function FeeReport() {
 
             setRecords(monthRecords);
             setPersonStats(Object.values(personMap).sort((a, b) => b.total - a.total));
+            setIsLoading(false);
         };
 
-        loadRecords();
+        loadAllData();
     }, [selectedYear, selectedMonth]);
 
     // 匯出個人總表 CSV
@@ -146,21 +169,23 @@ function FeeReport() {
 
     return (
         <div>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2><i className="fas fa-chart-bar me-2"></i>月結報表</h2>
-                <div className="d-flex gap-2 align-items-center">
-                    <select className="form-select" style={{ width: '100px' }}
-                        value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))}>
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                    </select>
-                    <select className="form-select" style={{ width: '100px' }}
-                        value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))}>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                            <option key={m} value={m}>{m}月</option>
-                        ))}
-                    </select>
-                </div>
+            <PageHeader
+                title="月結報表"
+                icon="📈"
+                subtitle={`${selectedYear}年${selectedMonth}月 收費統計`}
+            />
+            <div className="mb-4 d-flex gap-2">
+                <select className="form-select" style={{ width: '100px' }}
+                    value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))}>
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                </select>
+                <select className="form-select" style={{ width: '100px' }}
+                    value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                        <option key={m} value={m}>{m}月</option>
+                    ))}
+                </select>
             </div>
 
             {records.length === 0 ? (

@@ -68,6 +68,51 @@ function ActivityForm() {
     fetchElders();
   }, []);
 
+  // 當日期或長者名單改變時，重新同步出席資料
+  useEffect(() => {
+    console.log('=== 開始同步出席資料 [v2.0 - 使用 elder ID] ===');
+    console.log('目前日期:', formData.date);
+    console.log('長者名單數量:', elderList.length);
+
+    if (elderList.length === 0) {
+      console.log('長者名單為空，跳過');
+      return;
+    }
+
+    const storageKey = `fee_record_${formData.date}`;
+    console.log('讀取 localStorage key:', storageKey);
+
+    const feeRecord = localStorage.getItem(storageKey);
+    console.log('localStorage 資料存在:', !!feeRecord);
+
+    if (!feeRecord) {
+      console.log('找不到出席資料，清空選擇');
+      setSelectedElders({}); // 清空選擇
+      return;
+    }
+
+    const data = JSON.parse(feeRecord);
+    console.log('解析的資料:', data);
+
+    const participants = data.participants || [];
+    console.log('參與者數量:', participants.length);
+
+    const attendedNames = participants.filter(p => p.attended).map(p => p.name);
+    console.log('出席者名單:', attendedNames);
+
+    // 使用 elder_${elder.id} 作為 key，與 UI 的 checkbox 對應
+    const newSelectedElders = {};
+    elderList.forEach(elder => {
+      if (attendedNames.includes(elder.name)) {
+        const elderKey = `elder_${elder.id}`;
+        newSelectedElders[elderKey] = true;
+      }
+    });
+    console.log('要選取的長者:', newSelectedElders);
+    setSelectedElders(newSelectedElders);
+  }, [formData.date, elderList]);
+
+
   // 載入活動主題列表
   useEffect(() => {
     const fetchTopics = async () => {
@@ -81,6 +126,42 @@ function ActivityForm() {
       }
     };
     fetchTopics();
+  }, []);
+
+  // 活動目的清單
+  const [purposeList, setPurposeList] = useState([]);
+  const [isLoadingPurposes, setIsLoadingPurposes] = useState(true);
+
+  // 載入活動目的列表
+  useEffect(() => {
+    const defaultPurposes = [
+      { id: 'P1', name: '提升專注力' },
+      { id: 'P2', name: '增進記憶力' },
+      { id: 'P3', name: '促進社交互動' },
+      { id: 'P4', name: '維持認知功能' },
+      { id: 'P5', name: '情緒穩定' },
+      { id: 'P6', name: '增進手眼協調' },
+      { id: 'P7', name: '提升自我表達' },
+      { id: 'P8', name: '增加生活參與' }
+    ];
+
+    const fetchPurposes = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/sheets-purposes`);
+        // 如果 API 回傳空陣列，使用預設清單
+        if (response.data && response.data.length > 0) {
+          setPurposeList(response.data);
+        } else {
+          setPurposeList(defaultPurposes);
+        }
+      } catch (err) {
+        console.error('載入活動目的失敗:', err);
+        setPurposeList(defaultPurposes);
+      } finally {
+        setIsLoadingPurposes(false);
+      }
+    };
+    fetchPurposes();
   }, []);
 
   const handleChange = (e) => {
@@ -354,7 +435,7 @@ function ActivityForm() {
 
       const successMessage = `活動紀錄新增成功！\n參與者: ${formData.participants.length} 位\n已同步到 Google Sheets`;
       alert(successMessage);
-      navigate('/');
+      navigate('/activities');
 
     } catch (error) {
       console.error('提交錯誤:', error);
@@ -364,7 +445,7 @@ function ActivityForm() {
         photos: photoPreviews.map(p => p.url)
       });
       alert('活動紀錄已儲存到本地（Google Sheets 同步可能延遲）');
-      navigate('/');
+      navigate('/activities');
     } finally {
       setIsSubmitting(false);
     }
@@ -481,43 +562,49 @@ function ActivityForm() {
                 </div>
               </div>
 
-              {/* 活動目的勾選區 */}
-              {formData.topic && (
-                <div className="mb-4">
-                  <label className="form-label">
-                    <i className="fas fa-bullseye me-2"></i>
-                    活動目的（可勾選增減）
-                  </label>
+              {/* 活動目的勾選區 - 獨立選擇 */}
+              <div className="mb-4">
+                <label className="form-label">
+                  <i className="fas fa-bullseye me-2"></i>
+                  活動目的 *（點擊選取，建議選 2-3 個）
+                </label>
+                {isLoadingPurposes ? (
+                  <div className="text-muted">載入中...</div>
+                ) : (
                   <div className="border rounded p-3 bg-light">
-                    <div className="row">
-                      {topicList.find(t => t.name === formData.topic)?.relatedPurposes?.map((purpose, i) => (
-                        <div key={i} className="col-md-4 col-sm-6 mb-2">
-                          <div className="form-check">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              id={`purpose_${i}`}
-                              checked={formData.selectedPurposes?.[purpose] || false}
-                              onChange={() => {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  selectedPurposes: {
-                                    ...prev.selectedPurposes,
-                                    [purpose]: !prev.selectedPurposes?.[purpose]
-                                  }
-                                }));
-                              }}
-                            />
-                            <label className="form-check-label" htmlFor={`purpose_${i}`}>
-                              {purpose}
-                            </label>
-                          </div>
-                        </div>
+                    <div className="d-flex flex-wrap gap-2">
+                      {purposeList.map((p, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className={`btn btn-sm ${formData.selectedPurposes?.[p.name] ? 'btn-success' : 'btn-outline-secondary'}`}
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              selectedPurposes: {
+                                ...prev.selectedPurposes,
+                                [p.name]: !prev.selectedPurposes?.[p.name]
+                              }
+                            }));
+                          }}
+                          style={{
+                            transition: 'all 0.2s',
+                            borderRadius: '20px',
+                            fontWeight: formData.selectedPurposes?.[p.name] ? '600' : '400'
+                          }}
+                        >
+                          {formData.selectedPurposes?.[p.name] ? '✓ ' : ''}{p.name}
+                        </button>
                       ))}
                     </div>
+                    <div className="mt-2 pt-2 border-top">
+                      <small className={`${Object.values(formData.selectedPurposes || {}).filter(v => v).length === 0 ? 'text-danger' : 'text-success'}`}>
+                        已選擇 {Object.values(formData.selectedPurposes || {}).filter(v => v).length} 個目的
+                      </small>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* 長者勾選區域 */}
               <div className="mb-4">

@@ -4,40 +4,76 @@ import axios from 'axios';
 import API_BASE_URL from '../config/api';
 import { getActivities, initSampleData } from '../utils/storage';
 import { exportToExcel, exportToPDF, exportAllToPDF } from '../utils/exportUtils';
+import PageHeader from './PageHeader';
 
 function ActivityList() {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
+
   useEffect(() => {
-    // 初始化範例資料（如果 LocalStorage 是空的）
-    initSampleData();
     fetchActivities();
   }, []);
 
   const fetchActivities = async () => {
     try {
-      // 優先從 LocalStorage 讀取
-      const localActivities = getActivities();
+      // 優先從 Google Sheets 讀取（多人共享）
+      const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getActivities`);
+      const data = await response.json();
 
-      if (localActivities.length > 0) {
-        setActivities(localActivities);
+      if (data && data.length > 0) {
+        // 轉換從 Google Sheets 來的資料格式
+        const formattedActivities = data.map((item, index) => ({
+          id: item.id || `gs_${index}`,
+          date: item.date,
+          time: item.time,
+          activityName: item.activityName,
+          topic: item.topic,
+          purpose: item.purpose,
+          participants: parseParticipants(item.participants),
+          special: item.special,
+          discussion: item.discussion
+        }));
+        setActivities(formattedActivities);
       } else {
-        // 如果本地沒資料，嘗試從 API 取得（作為備援）
-        try {
-          const response = await axios.get(`${API_BASE_URL}/api/activities`);
-          setActivities(response.data);
-        } catch (apiError) {
-          console.log('API 不可用，使用本地資料');
-          setActivities([]);
-        }
+        // 如果 Google Sheets 沒資料，嘗試從 localStorage 讀取
+        const localActivities = getActivities();
+        setActivities(localActivities);
       }
-    } catch (error) {
-      console.error('取得活動列表錯誤:', error);
-      setError('無法載入活動列表，請稍後再試');
+    } catch (err) {
+      console.log('Google Sheets 讀取失敗，使用本地資料:', err);
+      // 備援：從 localStorage 讀取
+      const localActivities = getActivities();
+      setActivities(localActivities);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 解析參與者字串為陣列
+  const parseParticipants = (participantString) => {
+    if (!participantString) return [];
+    if (Array.isArray(participantString)) return participantString;
+
+    // 解析格式: "王大明(專注:4,互動:3,注意:4); 李小華(專注:3,互動:4,注意:3)"
+    try {
+      return participantString.split(';').map(p => {
+        const match = p.trim().match(/^(.+?)\(專注:(\d),互動:(\d),注意:(\d)/);
+        if (match) {
+          return {
+            name: match[1].trim(),
+            focus: parseInt(match[2]),
+            interaction: parseInt(match[3]),
+            attention: parseInt(match[4]),
+            attended: true
+          };
+        }
+        return { name: p.trim(), focus: 3, interaction: 3, attention: 3, attended: true };
+      }).filter(p => p.name);
+    } catch (e) {
+      return [];
     }
   };
 
@@ -78,33 +114,26 @@ function ActivityList() {
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h2>活動紀錄列表</h2>
-        <div className="d-flex gap-2 flex-wrap">
-          <Link to="/add" className="btn btn-primary">
-            新增活動紀錄
-          </Link>
-          <Link to="/stats" className="btn btn-info">
-            統計分析
-          </Link>
-          {activities.length > 0 && (
-            <>
-              <button
-                className="btn btn-success"
-                onClick={() => exportToExcel(activities)}
-              >
-                📄 匯出 Excel
-              </button>
-              <button
-                className="btn btn-danger"
-                onClick={() => exportAllToPDF(activities)}
-              >
-                📄 匯出 PDF
-              </button>
-            </>
-          )}
+      <PageHeader
+        title="活動紀錄列表"
+        icon="📋"
+        subtitle={`共 ${activities.length} 筆紀錄`}
+        actions={[
+          { label: '新增活動', icon: '➕', to: '/add', style: { background: 'rgba(255,255,255,0.25)' } },
+          { label: '統計分析', icon: '📊', to: '/stats' }
+        ]}
+      />
+
+      {activities.length > 0 && (
+        <div className="mb-4 d-flex gap-2 flex-wrap">
+          <button className="btn btn-success" onClick={() => exportToExcel(activities)}>
+            📄 匯出 Excel
+          </button>
+          <button className="btn btn-danger" onClick={() => exportAllToPDF(activities)}>
+            📄 匯出 PDF
+          </button>
         </div>
-      </div>
+      )}
 
       {activities.length === 0 ? (
         <div className="text-center py-5">

@@ -24,6 +24,7 @@ import FeeEdit from './components/FeeEdit';
 import PettyCash from './components/PettyCash';
 import WorkHours from './components/WorkHours';
 import ExpenseEntry from './components/ExpenseEntry';
+import HealthRecord from './components/HealthRecord';
 
 function App() {
   const location = useLocation();
@@ -59,6 +60,7 @@ function App() {
           <Route path="/petty-cash" element={<PettyCash />} />
           <Route path="/work-hours" element={<WorkHours />} />
           <Route path="/expense" element={<ExpenseEntry />} />
+          <Route path="/health" element={<HealthRecord />} />
         </Routes>
       </div>
     </div>

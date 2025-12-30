@@ -61,17 +61,35 @@ module.exports = async (req, res) => {
         const data = parseCSV(csv);
 
         // 轉換為系統需要的格式
-        // 假設欄位為: 主題名稱, 對應目的（逗號分隔）
+        // 更彈性的欄位解析 - 支援不同的表頭格式
         const topics = data.map((row, index) => {
-            const purposeStr = row['對應目的'] || row['相關目的'] || '';
+            // 嘗試多種欄位名稱
+            let topicName = '';
+            let purposeStr = '';
+
+            // 尋找主題名稱欄位
+            for (const key of Object.keys(row)) {
+                if (key.includes('主題') || key.includes('名稱')) {
+                    if (!topicName) topicName = row[key];
+                }
+                if (key.includes('目的') || key.includes('對應')) {
+                    if (!purposeStr) purposeStr = row[key];
+                }
+            }
+
+            // 如果還是找不到，用第一、二欄
+            const keys = Object.keys(row);
+            if (!topicName && keys.length > 0) topicName = row[keys[0]];
+            if (!purposeStr && keys.length > 1) purposeStr = row[keys[1]];
+
             const relatedPurposes = purposeStr.split(/[,、，]/).map(p => p.trim()).filter(p => p);
 
             return {
                 id: `T${index + 1}`,
-                name: row['主題名稱'] || row['活動主題'] || row['名稱'] || '',
+                name: topicName.trim(),
                 relatedPurposes: relatedPurposes
             };
-        }).filter(t => t.name);
+        }).filter(t => t.name && !t.name.includes('主題名稱') && t.name.length > 0);
 
         res.status(200).json(topics);
 

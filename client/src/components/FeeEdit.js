@@ -3,6 +3,8 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
 
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
+
 function FeeEdit() {
     const { date } = useParams();
     const navigate = useNavigate();
@@ -21,12 +23,19 @@ function FeeEdit() {
         const loadData = async () => {
             setIsLoading(true);
             try {
-                // 從後端或 localStorage 載入
                 let record = null;
+
+                // 優先從 Google Sheets 讀取
                 try {
-                    const res = await axios.get(`${API_BASE_URL}/api/fee-records/${date}`);
-                    record = res.data;
-                } catch {
+                    const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getFeeRecord&date=${date}`);
+                    const data = await res.json();
+                    if (data && data.participants) {
+                        record = data;
+                    }
+                } catch { }
+
+                // 備援：從 localStorage 讀取
+                if (!record) {
                     const saved = localStorage.getItem(`fee_record_${date}`);
                     if (saved) record = JSON.parse(saved);
                 }
@@ -82,10 +91,18 @@ function FeeEdit() {
         setIsSaving(true);
         try {
             const feeData = { date, participants: elders, lunchOrders, stats };
+
+            // 儲存到 Google Sheets
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveFeeRecord', ...feeData })
+            });
+
+            // 同時儲存到 localStorage 作為備份
             localStorage.setItem(`fee_record_${date}`, JSON.stringify(feeData));
-            try {
-                await axios.post(`${API_BASE_URL}/api/fee-records`, feeData);
-            } catch { }
+
             setShowSuccess(true);
             setTimeout(() => navigate('/fee-history'), 1500);
         } catch (err) {

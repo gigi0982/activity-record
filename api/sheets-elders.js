@@ -72,6 +72,10 @@ module.exports = async (req, res) => {
             level: row['分級'] || 'A',
             levelDesc: row['分級說明'] || '',
             scoreRange: row['建議評分'] || '',
+            identityType: row['身份類別'] || 'normal',
+            identityDesc: row['身份說明'] || '',
+            fare: row['車資'] ? parseInt(row['車資']) : 18,
+            familyLineId: row['家屬LINE'] || row['家屬LINE ID'] || '',
             notes: row['備註'] || ''
         })).filter(e => e.name); // 過濾掉沒有姓名的空行
 

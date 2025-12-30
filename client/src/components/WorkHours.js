@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import PageHeader from './PageHeader';
+
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
 
 function WorkHours() {
     const today = new Date().toISOString().split('T')[0];
@@ -11,48 +14,98 @@ function WorkHours() {
 
     // 載入助理名單
     useEffect(() => {
-        const saved = localStorage.getItem('work_hours_assistants');
-        if (saved) {
-            setAssistants(JSON.parse(saved));
-        } else {
-            setAssistants(['助理A', '助理B']);
-        }
-
-        const savedRate = localStorage.getItem('work_hours_rate');
-        if (savedRate) setHourlyRate(parseInt(savedRate));
+        const loadData = async () => {
+            try {
+                const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getWorkHoursConfig`);
+                const data = await res.json();
+                if (data && data.assistants) {
+                    setAssistants(data.assistants);
+                    if (data.hourlyRate) setHourlyRate(data.hourlyRate);
+                } else {
+                    const saved = localStorage.getItem('work_hours_assistants');
+                    if (saved) setAssistants(JSON.parse(saved));
+                    else setAssistants(['助理A', '助理B']);
+                    const savedRate = localStorage.getItem('work_hours_rate');
+                    if (savedRate) setHourlyRate(parseInt(savedRate));
+                }
+            } catch (err) {
+                const saved = localStorage.getItem('work_hours_assistants');
+                if (saved) setAssistants(JSON.parse(saved));
+                else setAssistants(['助理A', '助理B']);
+                const savedRate = localStorage.getItem('work_hours_rate');
+                if (savedRate) setHourlyRate(parseInt(savedRate));
+            }
+        };
+        loadData();
     }, []);
 
     // 載入當月工時紀錄
     useEffect(() => {
-        const saved = localStorage.getItem(`work_hours_${selectedMonth}`);
-        if (saved) {
-            setRecords(JSON.parse(saved));
-        } else {
-            setRecords([]);
-        }
+        const loadRecords = async () => {
+            try {
+                const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getWorkHours&month=${selectedMonth}`);
+                const data = await res.json();
+                if (data && Array.isArray(data)) {
+                    setRecords(data);
+                } else {
+                    const saved = localStorage.getItem(`work_hours_${selectedMonth}`);
+                    if (saved) setRecords(JSON.parse(saved));
+                    else setRecords([]);
+                }
+            } catch (err) {
+                const saved = localStorage.getItem(`work_hours_${selectedMonth}`);
+                if (saved) setRecords(JSON.parse(saved));
+                else setRecords([]);
+            }
+        };
+        loadRecords();
     }, [selectedMonth]);
 
     // 儲存紀錄
-    const saveRecords = (newRecords) => {
-        localStorage.setItem(`work_hours_${selectedMonth}`, JSON.stringify(newRecords));
+    const saveRecords = async (newRecords) => {
         setRecords(newRecords);
+        localStorage.setItem(`work_hours_${selectedMonth}`, JSON.stringify(newRecords));
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveWorkHours', month: selectedMonth, records: newRecords })
+            });
+        } catch (err) {
+            console.log('雲端同步失敗');
+        }
     };
 
     // 新增助理
-    const addAssistant = () => {
+    const addAssistant = async () => {
         if (!newAssistant.trim()) return;
         const updated = [...assistants, newAssistant.trim()];
-        localStorage.setItem('work_hours_assistants', JSON.stringify(updated));
         setAssistants(updated);
+        localStorage.setItem('work_hours_assistants', JSON.stringify(updated));
         setNewAssistant('');
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveWorkHoursConfig', assistants: updated, hourlyRate })
+            });
+        } catch (err) { }
     };
 
     // 移除助理
-    const removeAssistant = (name) => {
+    const removeAssistant = async (name) => {
         if (!window.confirm(`確定要移除「${name}」嗎？`)) return;
         const updated = assistants.filter(a => a !== name);
-        localStorage.setItem('work_hours_assistants', JSON.stringify(updated));
         setAssistants(updated);
+        localStorage.setItem('work_hours_assistants', JSON.stringify(updated));
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveWorkHoursConfig', assistants: updated, hourlyRate })
+            });
+        } catch (err) { }
     };
 
     // 更新工時
@@ -98,9 +151,18 @@ function WorkHours() {
     };
 
     // 儲存時薪
-    const saveRate = () => {
+    const saveRate = async () => {
         localStorage.setItem('work_hours_rate', String(hourlyRate));
-        alert('時薪設定已儲存');
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveWorkHoursConfig', assistants, hourlyRate })
+            });
+            alert('時薪設定已儲存並同步到雲端');
+        } catch (err) {
+            alert('時薪設定已儲存到本地');
+        }
     };
 
     // 計算薪資
@@ -108,18 +170,25 @@ function WorkHours() {
 
     return (
         <div>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2><i className="fas fa-clock me-2"></i>助理工時登記</h2>
-                <div className="d-flex gap-2 align-items-center">
-                    <input
-                        type="month"
-                        className="form-control"
-                        style={{ width: '150px' }}
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                    />
-                </div>
-            </div>
+            <PageHeader
+                title="助理工時登記"
+                icon="⏰"
+                subtitle={`${selectedMonth} 月份工時紀錄`}
+                actions={[
+                    {
+                        label: selectedMonth,
+                        icon: '📅',
+                        onClick: () => document.getElementById('monthInput').click()
+                    }
+                ]}
+            />
+            <input
+                type="month"
+                id="monthInput"
+                style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+            />
 
             {/* 設定區 */}
             <div className="row mb-4">
@@ -170,7 +239,9 @@ function WorkHours() {
                                         <span className="input-group-text">$</span>
                                         <input
                                             type="number"
+                                            inputMode="numeric"
                                             className="form-control"
+                                            min="100" max="500"
                                             value={hourlyRate}
                                             onChange={(e) => setHourlyRate(parseInt(e.target.value) || 0)}
                                         />
@@ -239,10 +310,12 @@ function WorkHours() {
                                             <td key={assistant} className="text-center p-1">
                                                 <input
                                                     type="number"
+                                                    inputMode="decimal"
                                                     className="form-control form-control-sm text-center"
                                                     style={{ width: '70px', margin: '0 auto' }}
                                                     placeholder="0"
                                                     step="0.5"
+                                                    min="0" max="12"
                                                     value={getHours(date, assistant)}
                                                     onChange={(e) => updateHours(date, assistant, e.target.value)}
                                                 />

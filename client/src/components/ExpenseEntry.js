@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
+import PageHeader from './PageHeader';
+
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
 
 function ExpenseEntry() {
     const [activeTab, setActiveTab] = useState('lunch');
@@ -50,50 +53,52 @@ function ExpenseEntry() {
         }
     }, []);
 
-    // 載入當月便當紀錄
-    useEffect(() => {
-        const saved = localStorage.getItem(`lunch_daily_${selectedMonth}`);
-        if (saved) setLunchRecords(JSON.parse(saved));
-        else setLunchRecords({});
-    }, [selectedMonth]);
+    // 自動從快速登記讀取便當資料
+    const getLunchStatsFromFeeRecords = () => {
+        const days = [];
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const daysInMonth = new Date(year, month, 0).getDate();
 
-    const saveLunchRecords = (records) => {
-        localStorage.setItem(`lunch_daily_${selectedMonth}`, JSON.stringify(records));
-        setLunchRecords(records);
-    };
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = `${selectedMonth}-${String(d).padStart(2, '0')}`;
+            const saved = localStorage.getItem(`fee_record_${date}`);
+            if (!saved) continue;
 
-    // 切換長者便當勾選
-    const toggleElderLunch = (elderId) => {
-        const dateRecords = lunchRecords[selectedDate] || {};
-        saveLunchRecords({
-            ...lunchRecords,
-            [selectedDate]: {
-                ...dateRecords,
-                [elderId]: !dateRecords[elderId]
+            const data = JSON.parse(saved);
+            const participants = data.participants || [];
+
+            const elderMeals = participants.filter(p => p.mealFee).length;
+            const caregiverMeals = participants.filter(p => p.caregiverMeal).length;
+
+            if (elderMeals > 0 || caregiverMeals > 0) {
+                days.push({
+                    date,
+                    elderMeals,
+                    caregiverMeals,
+                    total: elderMeals + caregiverMeals,
+                    cost: (elderMeals + caregiverMeals) * storePrice
+                });
             }
-        });
+        }
+        return days;
     };
 
-    // 全選/取消全選
-    const toggleAllLunch = () => {
-        const dateRecords = lunchRecords[selectedDate] || {};
-        const allSelected = elders.every(e => dateRecords[e.id]);
-        const newRecords = {};
-        elders.forEach(e => { newRecords[e.id] = !allSelected; });
-        saveLunchRecords({ ...lunchRecords, [selectedDate]: newRecords });
-    };
+    const lunchStats = getLunchStatsFromFeeRecords();
+    const lunchTotal = lunchStats.reduce((sum, d) => sum + d.cost, 0);
+    const totalElderMeals = lunchStats.reduce((sum, d) => sum + d.elderMeals, 0);
+    const totalCaregiverMeals = lunchStats.reduce((sum, d) => sum + d.caregiverMeals, 0);
 
-    // 計算今日便當數
-    const getTodayLunchCount = () => {
-        const dateRecords = lunchRecords[selectedDate] || {};
-        return Object.values(dateRecords).filter(v => v).length;
+    // 取得今日便當統計
+    const getTodayLunchStats = () => {
+        const saved = localStorage.getItem(`fee_record_${selectedDate}`);
+        if (!saved) return { elderMeals: 0, caregiverMeals: 0, total: 0 };
+        const data = JSON.parse(saved);
+        const participants = data.participants || [];
+        const elderMeals = participants.filter(p => p.mealFee).length;
+        const caregiverMeals = participants.filter(p => p.caregiverMeal).length;
+        return { elderMeals, caregiverMeals, total: elderMeals + caregiverMeals };
     };
-
-    // 計算月份便當總費用
-    const lunchTotal = Object.entries(lunchRecords).reduce((sum, [date, records]) => {
-        const count = Object.values(records).filter(v => v).length;
-        return sum + (count * storePrice);
-    }, 0);
+    const todayLunch = getTodayLunchStats();
 
     // ========== 駕駛薪資相關（自動從快速登記讀取）==========
     const [driverStats, setDriverStats] = useState([]);
@@ -149,21 +154,56 @@ function ExpenseEntry() {
     const [hourlyRate, setHourlyRate] = useState(183);
 
     useEffect(() => {
-        const savedAssistants = localStorage.getItem('work_hours_assistants');
-        if (savedAssistants) setAssistants(JSON.parse(savedAssistants));
-        else setAssistants(['助理A']);
+        const loadAssistantsAndRecords = async () => {
+            try {
+                // 從 Google Sheets 讀取助理設定
+                const configRes = await fetch(`${GOOGLE_SCRIPT_URL}?action=getWorkHoursConfig`);
+                const configData = await configRes.json();
+                if (configData && configData.assistants) {
+                    setAssistants(configData.assistants);
+                    if (configData.hourlyRate) setHourlyRate(configData.hourlyRate);
+                } else {
+                    const savedAssistants = localStorage.getItem('work_hours_assistants');
+                    if (savedAssistants) setAssistants(JSON.parse(savedAssistants));
+                    else setAssistants(['助理A']);
+                    const savedRate = localStorage.getItem('work_hours_rate');
+                    if (savedRate) setHourlyRate(parseInt(savedRate));
+                }
 
-        const savedRate = localStorage.getItem('work_hours_rate');
-        if (savedRate) setHourlyRate(parseInt(savedRate));
-
-        const saved = localStorage.getItem(`work_hours_${selectedMonth}`);
-        if (saved) setWorkRecords(JSON.parse(saved));
-        else setWorkRecords([]);
+                // 從 Google Sheets 讀取工時紀錄
+                const recordsRes = await fetch(`${GOOGLE_SCRIPT_URL}?action=getWorkHours&month=${selectedMonth}`);
+                const recordsData = await recordsRes.json();
+                if (recordsData && Array.isArray(recordsData)) {
+                    setWorkRecords(recordsData);
+                } else {
+                    const saved = localStorage.getItem(`work_hours_${selectedMonth}`);
+                    if (saved) setWorkRecords(JSON.parse(saved));
+                    else setWorkRecords([]);
+                }
+            } catch (err) {
+                const savedAssistants = localStorage.getItem('work_hours_assistants');
+                if (savedAssistants) setAssistants(JSON.parse(savedAssistants));
+                else setAssistants(['助理A']);
+                const savedRate = localStorage.getItem('work_hours_rate');
+                if (savedRate) setHourlyRate(parseInt(savedRate));
+                const saved = localStorage.getItem(`work_hours_${selectedMonth}`);
+                if (saved) setWorkRecords(JSON.parse(saved));
+                else setWorkRecords([]);
+            }
+        };
+        loadAssistantsAndRecords();
     }, [selectedMonth]);
 
-    const saveWorkRecords = (records) => {
-        localStorage.setItem(`work_hours_${selectedMonth}`, JSON.stringify(records));
+    const saveWorkRecords = async (records) => {
         setWorkRecords(records);
+        localStorage.setItem(`work_hours_${selectedMonth}`, JSON.stringify(records));
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveWorkHours', month: selectedMonth, records })
+            });
+        } catch (err) { }
     };
 
     const updateWorkHours = (date, assistant, hours) => {
@@ -189,14 +229,36 @@ function ExpenseEntry() {
     const categories = ['文具用品', '清潔用品', '食材', '活動材料', '交通', '雜支', '其他'];
 
     useEffect(() => {
-        const saved = localStorage.getItem(`petty_cash_${selectedMonth}`);
-        if (saved) setPettyCashRecords(JSON.parse(saved));
-        else setPettyCashRecords([]);
+        const loadPettyCash = async () => {
+            try {
+                const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getPettyCash&month=${selectedMonth}`);
+                const data = await res.json();
+                if (data && Array.isArray(data)) {
+                    setPettyCashRecords(data);
+                } else {
+                    const saved = localStorage.getItem(`petty_cash_${selectedMonth}`);
+                    if (saved) setPettyCashRecords(JSON.parse(saved));
+                    else setPettyCashRecords([]);
+                }
+            } catch (err) {
+                const saved = localStorage.getItem(`petty_cash_${selectedMonth}`);
+                if (saved) setPettyCashRecords(JSON.parse(saved));
+                else setPettyCashRecords([]);
+            }
+        };
+        loadPettyCash();
     }, [selectedMonth]);
 
-    const savePettyCash = (records) => {
-        localStorage.setItem(`petty_cash_${selectedMonth}`, JSON.stringify(records));
+    const savePettyCash = async (records) => {
         setPettyCashRecords(records);
+        localStorage.setItem(`petty_cash_${selectedMonth}`, JSON.stringify(records));
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'savePettyCash', month: selectedMonth, records })
+            });
+        } catch (err) { }
     };
 
     const addPettyCashRecord = () => {
@@ -221,6 +283,75 @@ function ExpenseEntry() {
 
     const pettyCashTotal = pettyCashRecords.reduce((sum, r) => sum + r.amount, 0);
 
+    // ========== 長者收費相關 ==========
+    const MEAL_FEE = 40;  // 向長者收取餐費 40 元
+
+    // 根據身份類別取得車資
+    const getFareByIdentity = (identityType) => {
+        switch (identityType) {
+            case 'low': return 0;        // 低收：免費
+            case 'mediumLow': return 5;  // 中低收：5元
+            default: return 18;          // 一般戶：18元
+        }
+    };
+
+    // 計算長者月結明細
+    const calculateElderBilling = () => {
+        const days = getDaysInMonth();
+        const billing = {};
+
+        // 初始化每位長者的統計
+        elders.forEach(elder => {
+            billing[elder.name] = {
+                name: elder.name,
+                identityType: elder.identityType || 'normal',
+                mealDays: 0,
+                transportDays: 0,
+                mealFee: 0,
+                transportFee: 0,
+                total: 0
+            };
+        });
+
+        // 遍歷當月每天的快速登記資料
+        days.forEach(date => {
+            const saved = localStorage.getItem(`fee_record_${date}`);
+            if (!saved) return;
+
+            const data = JSON.parse(saved);
+            const participants = data.participants || [];
+
+            participants.forEach(p => {
+                if (!billing[p.name]) return;
+
+                // 統計餐費（如果有勾選）
+                if (p.mealFee) {
+                    billing[p.name].mealDays += 1;
+                }
+
+                // 統計車資（有來程或回程就算一天）
+                if (p.pickupAM || p.pickupPM) {
+                    billing[p.name].transportDays += 1;
+                }
+            });
+        });
+
+        // 計算費用
+        Object.keys(billing).forEach(name => {
+            const elder = elders.find(e => e.name === name);
+            const fare = getFareByIdentity(elder?.identityType || 'normal');
+
+            billing[name].mealFee = billing[name].mealDays * MEAL_FEE;
+            billing[name].transportFee = billing[name].transportDays * fare;
+            billing[name].total = billing[name].mealFee + billing[name].transportFee;
+        });
+
+        return Object.values(billing).filter(b => b.mealDays > 0 || b.transportDays > 0);
+    };
+
+    const elderBilling = calculateElderBilling();
+    const elderBillingTotal = elderBilling.reduce((sum, b) => sum + b.total, 0);
+
     // Tab 樣式
     const tabStyle = (isActive) => ({
         padding: '12px 20px',
@@ -235,16 +366,28 @@ function ExpenseEntry() {
 
     return (
         <div>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2>💳 支出登記</h2>
-                <div className="d-flex gap-2 align-items-center">
-                    <input type="date" className="form-control" style={{ width: '160px' }}
-                        value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-                </div>
-            </div>
+            <PageHeader
+                title="支出登記"
+                icon="💳"
+                subtitle="便當、駕駛薪資、工時、零用金"
+                actions={[
+                    {
+                        label: selectedDate,
+                        icon: '📅',
+                        onClick: () => document.getElementById('dateInput').click()
+                    }
+                ]}
+            />
+            <input
+                type="date"
+                id="dateInput"
+                style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+            />
 
             {/* Tab 導航 */}
-            <div style={{ display: 'flex', marginBottom: '-1px' }}>
+            <div style={{ display: 'flex', marginBottom: '-1px', flexWrap: 'wrap' }}>
                 <button style={tabStyle(activeTab === 'lunch')} onClick={() => setActiveTab('lunch')}>
                     🍱 便當 <span className="badge bg-light text-dark ms-1">${lunchTotal}</span>
                 </button>
@@ -256,6 +399,9 @@ function ExpenseEntry() {
                 </button>
                 <button style={tabStyle(activeTab === 'petty')} onClick={() => setActiveTab('petty')}>
                     💰 零用金 <span className="badge bg-light text-dark ms-1">${pettyCashTotal}</span>
+                </button>
+                <button style={tabStyle(activeTab === 'elderBilling')} onClick={() => setActiveTab('elderBilling')}>
+                    👴 長者收費 <span className="badge bg-light text-dark ms-1">${elderBillingTotal}</span>
                 </button>
             </div>
 
@@ -285,47 +431,80 @@ function ExpenseEntry() {
                                     <label className="form-label">單價</label>
                                     <div className="input-group">
                                         <span className="input-group-text">$</span>
-                                        <input type="number" className="form-control" value={storePrice}
+                                        <input type="number" inputMode="numeric" className="form-control"
+                                            min="0" max="200"
+                                            style={{ borderColor: storePrice < 0 || storePrice > 200 ? '#f44336' : undefined }}
+                                            value={storePrice}
                                             onChange={(e) => setStorePrice(parseInt(e.target.value) || 0)} />
                                     </div>
                                 </div>
-                                <div className="col-md-5 d-flex align-items-end">
-                                    <div className="alert alert-success mb-0 py-2 px-3 w-100">
-                                        今日便當：<strong>{getTodayLunchCount()}</strong> 個 = <strong>${getTodayLunchCount() * storePrice}</strong>
+                            </div>
+
+                            {/* 今日統計 */}
+                            <div className="alert alert-success mb-4">
+                                <div className="d-flex justify-content-around text-center">
+                                    <div>
+                                        <div className="h4 mb-0">{todayLunch.elderMeals}</div>
+                                        <small>長者用餐</small>
+                                    </div>
+                                    <div>
+                                        <div className="h4 mb-0">{todayLunch.caregiverMeals}</div>
+                                        <small>外勞用餐</small>
+                                    </div>
+                                    <div>
+                                        <div className="h4 mb-0 text-primary">{todayLunch.total}</div>
+                                        <small><strong>便當總計</strong></small>
+                                    </div>
+                                    <div>
+                                        <div className="h4 mb-0 text-danger">${todayLunch.total * storePrice}</div>
+                                        <small><strong>今日金額</strong></small>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* 全選按鈕 */}
-                            <div className="mb-2">
-                                <button className="btn btn-outline-primary btn-sm" onClick={toggleAllLunch}>
-                                    {elders.every(e => (lunchRecords[selectedDate] || {})[e.id]) ? '取消全選' : '全選'}
-                                </button>
+                            <div className="alert alert-info mb-3">
+                                <i className="fas fa-info-circle me-2"></i>
+                                便當數量自動從「今日快速登記」的餐費勾選讀取，無需手動輸入。
                             </div>
 
-                            {/* 長者便當勾選表格 */}
-                            <div className="table-responsive">
-                                <table className="table table-hover">
-                                    <thead className="table-light">
-                                        <tr>
-                                            <th style={{ width: '60px' }}>便當</th>
-                                            <th>姓名</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {elders.map(elder => (
-                                            <tr key={elder.id} onClick={() => toggleElderLunch(elder.id)} style={{ cursor: 'pointer' }}>
-                                                <td className="text-center">
-                                                    <input type="checkbox" className="form-check-input"
-                                                        checked={(lunchRecords[selectedDate] || {})[elder.id] || false}
-                                                        onChange={() => { }} />
-                                                </td>
-                                                <td>{elder.name}</td>
+                            {/* 月份統計表格 */}
+                            {lunchStats.length === 0 ? (
+                                <p className="text-muted text-center py-4">本月尚無便當紀錄（請先在「今日快速登記」勾選餐費）</p>
+                            ) : (
+                                <div className="table-responsive">
+                                    <table className="table table-sm table-hover">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th>日期</th>
+                                                <th className="text-center">長者</th>
+                                                <th className="text-center">外勞</th>
+                                                <th className="text-center">總計</th>
+                                                <th className="text-end">金額</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            {lunchStats.map(d => (
+                                                <tr key={d.date}>
+                                                    <td>{d.date}</td>
+                                                    <td className="text-center">{d.elderMeals}</td>
+                                                    <td className="text-center">{d.caregiverMeals}</td>
+                                                    <td className="text-center fw-bold">{d.total}</td>
+                                                    <td className="text-end text-primary">${d.cost}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot className="table-warning">
+                                            <tr>
+                                                <th>月份合計</th>
+                                                <th className="text-center">{totalElderMeals}</th>
+                                                <th className="text-center">{totalCaregiverMeals}</th>
+                                                <th className="text-center">{totalElderMeals + totalCaregiverMeals}</th>
+                                                <th className="text-end text-success h5 mb-0">${lunchTotal}</th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -394,8 +573,8 @@ function ExpenseEntry() {
                                                 <div className="card-body">
                                                     <div className="d-flex align-items-center gap-2">
                                                         <span>今日工時：</span>
-                                                        <input type="number" className="form-control form-control-sm" style={{ width: '80px' }}
-                                                            step="0.5" placeholder="0"
+                                                        <input type="number" inputMode="decimal" className="form-control form-control-sm" style={{ width: '80px' }}
+                                                            step="0.5" min="0" max="12" placeholder="0"
                                                             value={getWorkHours(selectedDate, assistant)}
                                                             onChange={(e) => updateWorkHours(selectedDate, assistant, e.target.value)} />
                                                         <span>小時</span>
@@ -420,7 +599,9 @@ function ExpenseEntry() {
                                 <div className="col-md-2">
                                     <div className="input-group">
                                         <span className="input-group-text">$</span>
-                                        <input type="number" className="form-control" placeholder="金額"
+                                        <input type="number" inputMode="numeric" className="form-control" placeholder="金額"
+                                            min="1" max="100000"
+                                            style={{ borderColor: newPettyCash.amount && (newPettyCash.amount < 1 || newPettyCash.amount > 100000) ? '#f44336' : undefined }}
                                             value={newPettyCash.amount} onChange={(e) => setNewPettyCash({ ...newPettyCash, amount: e.target.value })} />
                                     </div>
                                 </div>
@@ -451,6 +632,66 @@ function ExpenseEntry() {
                                         ))}
                                     </tbody>
                                 </table>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 長者收費 Tab */}
+                    {activeTab === 'elderBilling' && (
+                        <div>
+                            <div className="alert alert-info mb-3">
+                                <strong>📋 收費標準：</strong><br />
+                                餐費：$40/餐<br />
+                                車資：一般戶 $18 / 中低收 $5 / 低收 $0
+                            </div>
+                            {elderBilling.length === 0 ? (
+                                <p className="text-muted text-center py-4">本月尚無長者出席紀錄（請先在「今日快速登記」登記）</p>
+                            ) : (
+                                <div className="table-responsive">
+                                    <table className="table table-hover">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th>姓名</th>
+                                                <th className="text-center">身份類別</th>
+                                                <th className="text-center">用餐天數</th>
+                                                <th className="text-center">餐費</th>
+                                                <th className="text-center">接送天數</th>
+                                                <th className="text-center">車資</th>
+                                                <th className="text-end">應收合計</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {elderBilling.map((b, i) => {
+                                                const identityLabel = b.identityType === 'low' ? '低收' :
+                                                    b.identityType === 'mediumLow' ? '中低收' : '一般戶';
+                                                const identityColor = b.identityType === 'low' ? '#4CAF50' :
+                                                    b.identityType === 'mediumLow' ? '#FF9800' : '#2196F3';
+                                                return (
+                                                    <tr key={i}>
+                                                        <td><strong>{b.name}</strong></td>
+                                                        <td className="text-center">
+                                                            <span className="badge" style={{ backgroundColor: identityColor }}>{identityLabel}</span>
+                                                        </td>
+                                                        <td className="text-center">{b.mealDays} 天</td>
+                                                        <td className="text-center">${b.mealFee}</td>
+                                                        <td className="text-center">{b.transportDays} 天</td>
+                                                        <td className="text-center">${b.transportFee}</td>
+                                                        <td className="text-end text-success fw-bold">${b.total}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                        <tfoot className="table-warning">
+                                            <tr>
+                                                <th colSpan="3">合計</th>
+                                                <th className="text-center">${elderBilling.reduce((s, b) => s + b.mealFee, 0)}</th>
+                                                <th></th>
+                                                <th className="text-center">${elderBilling.reduce((s, b) => s + b.transportFee, 0)}</th>
+                                                <th className="text-end text-success h5 mb-0">${elderBillingTotal}</th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
                             )}
                         </div>
                     )}

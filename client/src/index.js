@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { ToastProvider } from './components/Toast';
+import { LoadingProvider } from './components/Loading';
 import App from './App';
 import './index.css';
 
@@ -8,7 +10,11 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <LoadingProvider>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </LoadingProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
@@ -19,7 +25,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
       .then(registration => {
         console.log('SW registered: ', registration);
-        
+
         // 檢查更新
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;

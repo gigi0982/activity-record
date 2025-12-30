@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
 
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
+
 function FeeRegistration() {
     const today = new Date().toISOString().split('T')[0];
     const [selectedDate, setSelectedDate] = useState(today);
@@ -60,12 +62,42 @@ function FeeRegistration() {
                     setRates(JSON.parse(savedRates));
                 }
 
-                // 載入當日已儲存的登記資料
-                const savedData = localStorage.getItem(`fee_record_${selectedDate}`);
-                if (savedData) {
-                    const parsed = JSON.parse(savedData);
-                    setParticipants(parsed.participants || []);
-                    setLunchOrders(parsed.lunchOrders || []);
+                // 載入當日已儲存的登記資料（優先從 Google Sheets）
+                try {
+                    const feeRes = await fetch(`${GOOGLE_SCRIPT_URL}?action=getFeeRecord&date=${selectedDate}`);
+                    const feeData = await feeRes.json();
+                    if (feeData && feeData.participants) {
+                        // 從 Google Sheets 取得資料，合併長者名單
+                        const mergedParticipants = elders.map(e => {
+                            const saved = feeData.participants.find(p => p.name === e.name);
+                            return saved || {
+                                ...e,
+                                attended: false,
+                                pickupAM: false,
+                                pickupPM: false,
+                                lunch: false,
+                                identity: e.identity || '長者',
+                            };
+                        });
+                        setParticipants(mergedParticipants);
+                        setLunchOrders(feeData.lunchOrders || []);
+                    } else {
+                        // 嘗試從 localStorage 讀取（備援）
+                        const savedData = localStorage.getItem(`fee_record_${selectedDate}`);
+                        if (savedData) {
+                            const parsed = JSON.parse(savedData);
+                            setParticipants(parsed.participants || []);
+                            setLunchOrders(parsed.lunchOrders || []);
+                        }
+                    }
+                } catch (err) {
+                    console.log('Google Sheets 讀取失敗，使用本地資料');
+                    const savedData = localStorage.getItem(`fee_record_${selectedDate}`);
+                    if (savedData) {
+                        const parsed = JSON.parse(savedData);
+                        setParticipants(parsed.participants || []);
+                        setLunchOrders(parsed.lunchOrders || []);
+                    }
                 }
             } catch (err) {
                 console.error('載入資料失敗:', err);
@@ -147,15 +179,33 @@ function FeeRegistration() {
     const stats = calculateStats();
 
     // 儲存紀錄
-    const saveRecord = () => {
+    const saveRecord = async () => {
         const record = {
             date: selectedDate,
             participants,
             lunchOrders,
             stats,
         };
-        localStorage.setItem(`fee_record_${selectedDate}`, JSON.stringify(record));
-        alert('紀錄已儲存！');
+
+        // 儲存到 Google Sheets
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'saveFeeRecord',
+                    ...record
+                })
+            });
+            // 同時儲存到 localStorage 作為備份
+            localStorage.setItem(`fee_record_${selectedDate}`, JSON.stringify(record));
+            alert('紀錄已儲存並同步到雲端！');
+        } catch (err) {
+            console.error('同步失敗:', err);
+            localStorage.setItem(`fee_record_${selectedDate}`, JSON.stringify(record));
+            alert('紀錄已儲存到本地（雲端同步可能延遲）');
+        }
     };
 
     if (isLoading) {

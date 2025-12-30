@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
 
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
+
 function FeeHistory() {
     const navigate = useNavigate();
     const today = new Date();
@@ -15,41 +17,35 @@ function FeeHistory() {
     useEffect(() => {
         const loadRecords = async () => {
             setIsLoading(true);
-            try {
-                // 嘗試從後端載入
-                const res = await axios.get(`${API_BASE_URL}/api/fee-records`, {
-                    params: { year: selectedYear, month: selectedMonth }
-                });
-                if (res.data && res.data.length > 0) {
-                    setRecords(res.data);
-                } else {
-                    // 從 localStorage 載入
-                    const localRecords = [];
-                    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-                    for (let day = 1; day <= daysInMonth; day++) {
-                        const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const saved = localStorage.getItem(`fee_record_${dateStr}`);
-                        if (saved) {
-                            localRecords.push(JSON.parse(saved));
-                        }
+            const localRecords = [];
+            const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+
+            // 從 Google Sheets 或 localStorage 載入每日紀錄
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+                let record = null;
+                try {
+                    const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getFeeRecord&date=${dateStr}`);
+                    const data = await res.json();
+                    if (data && data.participants) {
+                        record = data;
                     }
-                    setRecords(localRecords);
-                }
-            } catch (err) {
-                // 從 localStorage 載入
-                const localRecords = [];
-                const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                } catch (err) { }
+
+                // 備援：從 localStorage 讀取
+                if (!record) {
                     const saved = localStorage.getItem(`fee_record_${dateStr}`);
-                    if (saved) {
-                        localRecords.push(JSON.parse(saved));
-                    }
+                    if (saved) record = JSON.parse(saved);
                 }
-                setRecords(localRecords);
-            } finally {
-                setIsLoading(false);
+
+                if (record) {
+                    localRecords.push(record);
+                }
             }
+
+            setRecords(localRecords);
+            setIsLoading(false);
         };
         loadRecords();
     }, [selectedYear, selectedMonth]);

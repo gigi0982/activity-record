@@ -9,18 +9,18 @@
   --primary-light: #42a5f5;
   --primary-dark: #1565c0;
   --primary-gradient: linear-gradient(135deg, #1976D2 0%, #1565c0 100%);
-  
+
   /* 強調色 */
   --accent: #E91E63;
   --accent-light: #f48fb1;
-  
+
   /* 成功/警告/錯誤 */
   --success: #4CAF50;
   --success-light: #81c784;
   --warning: #FF9800;
   --warning-light: #ffb74d;
   --danger: #f44336;
-  
+
   /* 中性色 */
   --gray-50: #fafafa;
   --gray-100: #f5f5f5;
@@ -32,19 +32,19 @@
   --gray-700: #616161;
   --gray-800: #424242;
   --gray-900: #212121;
-  
+
   /* 陰影 */
-  --shadow-sm: 0 2px 4px rgba(0,0,0,0.08);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.16);
-  --shadow-hover: 0 8px 30px rgba(0,0,0,0.2);
-  
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+  --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.2);
+
   /* 圓角 */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
-  
+
   /* 過渡動畫 */
   --transition-fast: 0.15s ease;
   --transition-base: 0.25s ease;
@@ -170,14 +170,16 @@ code {
 }
 
 /* 表單控制項 */
-.form-control, .form-select {
+.form-control,
+.form-select {
   border-radius: var(--radius-sm);
   border: 1px solid var(--gray-300);
   padding: 0.6rem 0.875rem;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.form-control:focus, .form-select:focus {
+.form-control:focus,
+.form-select:focus {
   border-color: var(--primary-light);
   box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
 }
@@ -280,18 +282,61 @@ code {
 
 /* 動畫 */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 .fade-in {
@@ -308,12 +353,13 @@ code {
     margin-right: 5px;
     margin-bottom: 5px;
   }
-  
+
   .card-body {
     padding: 1rem;
   }
-  
-  .table th, .table td {
+
+  .table th,
+  .table td {
     padding: 0.5rem;
     font-size: 0.9rem;
   }
@@ -333,7 +379,12 @@ code {
 }
 
 /* 頁面標題樣式 */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   color: var(--gray-800);
   font-weight: 600;
 }

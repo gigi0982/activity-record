@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
 import { getActivities } from '../utils/storage';
+import PageHeader from './PageHeader';
 
 function QuarterlyStats() {
     const [stats, setStats] = useState(null);
@@ -153,34 +154,33 @@ function QuarterlyStats() {
     return (
         <div>
             {/* 頁面標題與選擇器 */}
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2>
-                    <i className="fas fa-chart-bar me-2"></i>
-                    季度統計報表
-                </h2>
-                <div className="d-flex gap-2">
-                    <select
-                        className="form-select"
-                        value={selectedYear}
-                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                        style={{ width: '120px' }}
-                    >
-                        {yearOptions.map(y => (
-                            <option key={y} value={y}>{y} 年</option>
-                        ))}
-                    </select>
-                    <select
-                        className="form-select"
-                        value={selectedQuarter}
-                        onChange={(e) => setSelectedQuarter(parseInt(e.target.value))}
-                        style={{ width: '100px' }}
-                    >
-                        <option value={1}>Q1</option>
-                        <option value={2}>Q2</option>
-                        <option value={3}>Q3</option>
-                        <option value={4}>Q4</option>
-                    </select>
-                </div>
+            <PageHeader
+                title="季度統計報表"
+                icon="📊"
+                subtitle={`${selectedYear} Q${selectedQuarter} 長者表現分析`}
+            />
+            <div className="mb-4 d-flex gap-2">
+                <select
+                    className="form-select"
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    style={{ width: '120px' }}
+                >
+                    {yearOptions.map(y => (
+                        <option key={y} value={y}>{y} 年</option>
+                    ))}
+                </select>
+                <select
+                    className="form-select"
+                    value={selectedQuarter}
+                    onChange={(e) => setSelectedQuarter(parseInt(e.target.value))}
+                    style={{ width: '100px' }}
+                >
+                    <option value={1}>Q1</option>
+                    <option value={2}>Q2</option>
+                    <option value={3}>Q3</option>
+                    <option value={4}>Q4</option>
+                </select>
             </div>
 
             {/* 摘要卡片 */}

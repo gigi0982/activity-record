@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
+import PageHeader from './PageHeader';
 
 function MeetingList() {
     const [meetings, setMeetings] = useState([]);
@@ -54,12 +55,14 @@ function MeetingList() {
 
     return (
         <div>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2><i className="fas fa-clipboard-list me-2"></i>會議記錄</h2>
-                <Link to="/meetings/new" className="btn btn-primary">
-                    <i className="fas fa-plus me-2"></i>新增會議
-                </Link>
-            </div>
+            <PageHeader
+                title="會議紀錄"
+                icon="📝"
+                subtitle="檢討會議與決議追蹤"
+                actions={[
+                    { label: '新增會議', icon: '➕', to: '/meetings/new', style: { background: 'rgba(255,255,255,0.25)' } }
+                ]}
+            />
 
             {meetings.length === 0 ? (
                 <div className="alert alert-info">尚無會議記錄</div>

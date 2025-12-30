@@ -967,7 +967,404 @@ app.get('/api/fee-records', async (req, res) => {
     res.json(records);
   } catch (error) {
     console.error('取得月份收費紀錄錯誤:', error);
-    res.status(500).json({ error: '無法取得月份收費紀錄' });
+  }
+});
+
+// ========== LINE 推播 API ==========
+
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+
+// LINE Webhook - 接收訊息並回覆 User ID
+app.post('/api/line/webhook', async (req, res) => {
+  try {
+    const events = req.body.events || [];
+
+    for (const event of events) {
+      // 只處理文字訊息
+      if (event.type === 'message' && event.message.type === 'text') {
+        const userId = event.source.userId;
+        const userMessage = event.message.text.trim().toLowerCase();
+        const replyToken = event.replyToken;
+
+        // 檢查是否是查詢 ID 的訊息
+        const idKeywords = ['我的id', '我的 id', 'id', 'myid', 'userid', 'user id', '查詢id'];
+        const isIdQuery = idKeywords.some(keyword => userMessage.includes(keyword));
+
+        if (isIdQuery && userId) {
+          // 回覆用戶的 User ID
+          const replyMessage = `👋 您好！\n\n您的 LINE User ID 是：\n\n📋 ${userId}\n\n請將此 ID 提供給據點工作人員，以便設定健康紀錄通知功能。\n\n🏠 失智據點關心您`;
+
+          await fetch('https://api.line.me/v2/bot/message/reply', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+            },
+            body: JSON.stringify({
+              replyToken: replyToken,
+              messages: [{ type: 'text', text: replyMessage }]
+            })
+          });
+        } else if (userMessage === '你好' || userMessage === '嗨' || userMessage === 'hi' || userMessage === 'hello') {
+          // 歡迎訊息
+          const welcomeMessage = `👋 您好！歡迎使用「據點健康通知」服務！\n\n📌 功能說明：\n當長者在據點有健康紀錄時，我們會自動發送通知給您。\n\n🔑 若要取得您的 LINE ID，請輸入「我的ID」\n\n🏠 失智據點關心您`;
+
+          await fetch('https://api.line.me/v2/bot/message/reply', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+            },
+            body: JSON.stringify({
+              replyToken: replyToken,
+              messages: [{ type: 'text', text: welcomeMessage }]
+            })
+          });
+        }
+      }
+
+      // 處理加入好友事件
+      if (event.type === 'follow') {
+        const userId = event.source.userId;
+        const replyToken = event.replyToken;
+
+        const welcomeMessage = `🎉 感謝您加入「據點健康通知」！\n\n📌 這個帳號會自動發送長者健康紀錄給您。\n\n🔑 您的 LINE User ID 是：\n${userId}\n\n請將此 ID 提供給據點工作人員，即可開始接收通知。\n\n🏠 失智據點關心您`;
+
+        await fetch('https://api.line.me/v2/bot/message/reply', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+          },
+          body: JSON.stringify({
+            replyToken: replyToken,
+            messages: [{ type: 'text', text: welcomeMessage }]
+          })
+        });
+      }
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('LINE Webhook 錯誤:', error);
+    res.status(200).json({ success: false }); // LINE 要求必須回傳 200
+  }
+});
+
+// 發送 LINE 健康報告給家屬
+app.post('/api/line/send-health-report', async (req, res) => {
+  try {
+    const { userId, healthData } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: '缺少家屬 LINE User ID' });
+    }
+
+    if (!healthData) {
+      return res.status(400).json({ error: '缺少健康資料' });
+    }
+
+    // 組成訊息
+    const { elderName, date, time, systolic, diastolic, temperature, bpStatus, tempStatus, notes } = healthData;
+
+    // 問候語
+    const greetings = [
+      '💝 感謝您對長輩的關心！',
+      '🌸 願長輩平安健康！',
+      '💖 家人的愛是最好的良藥！'
+    ];
+    const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+    let message = `${greeting}\n\n`;
+    message += `📋 健康紀錄通知\n`;
+    message += `━━━━━━━━━━━━━\n`;
+    message += `👤 長者：${elderName}\n`;
+    message += `📅 日期：${date} ${time || ''}\n`;
+    message += `━━━━━━━━━━━━━\n`;
+
+    if (systolic && diastolic) {
+      const bpIcon = bpStatus === '正常' ? '🟢' : bpStatus === '偏高' ? '🟡' : bpStatus === '高血壓' ? '🔴' : '🔵';
+      message += `💓 血壓：${systolic}/${diastolic} mmHg ${bpIcon} ${bpStatus || ''}\n`;
+    }
+
+    if (temperature) {
+      const tempIcon = tempStatus === '正常' ? '🟢' : tempStatus === '微燒' ? '🟡' : tempStatus === '發燒' ? '🔴' : '🔵';
+      message += `🌡️ 體溫：${temperature}°C ${tempIcon} ${tempStatus || ''}\n`;
+    }
+
+    if (notes) {
+      message += `📝 備註：${notes}\n`;
+    }
+
+    message += `━━━━━━━━━━━━━\n`;
+    message += `🏠 失智據點關心您`;
+
+    // 發送 LINE 訊息
+    const response = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+      },
+      body: JSON.stringify({
+        to: userId,
+        messages: [
+          {
+            type: 'text',
+            text: message
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('LINE API Error:', error);
+      return res.status(500).json({ error: '發送 LINE 訊息失敗', details: error });
+    }
+
+    res.json({ success: true, message: '已成功發送給家屬' });
+  } catch (error) {
+    console.error('發送健康報告錯誤:', error);
+    res.status(500).json({ error: '發送失敗' });
+  }
+});
+
+// 發送多筆健康報告
+app.post('/api/line/send-health-report-batch', async (req, res) => {
+  try {
+    const { userId, elderName, records } = req.body;
+
+    if (!userId || !records || records.length === 0) {
+      return res.status(400).json({ error: '缺少必要資料' });
+    }
+
+    // 問候語
+    const greetings = [
+      '💝 感謝您對長輩的關心！',
+      '🌸 願長輩平安健康！',
+      '💖 家人的愛是最好的良藥！'
+    ];
+    const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+    // 組成摘要訊息
+    let message = `${greeting}\n\n`;
+    message += `📊 健康紀錄報告\n`;
+    message += `━━━━━━━━━━━━━\n`;
+    message += `👤 長者：${elderName}\n`;
+    message += `📅 期間：${records[records.length - 1]?.date || ''} ~ ${records[0]?.date || ''}\n`;
+    message += `━━━━━━━━━━━━━\n\n`;
+
+    records.slice(0, 7).forEach(record => {
+      const bpIcon = record.bpStatus === '正常' ? '🟢' : record.bpStatus === '偏高' ? '🟡' : record.bpStatus === '高血壓' ? '🔴' : '🔵';
+      const tempIcon = record.tempStatus === '正常' ? '🟢' : record.tempStatus === '微燒' ? '🟡' : record.tempStatus === '發燒' ? '🔴' : '🔵';
+
+      message += `📅 ${record.date} ${record.time || ''}\n`;
+      if (record.systolic && record.diastolic) {
+        message += `   血壓：${record.systolic}/${record.diastolic} ${bpIcon}\n`;
+      }
+      if (record.temperature) {
+        message += `   體溫：${record.temperature}°C ${tempIcon}\n`;
+      }
+      message += `\n`;
+    });
+
+    if (records.length > 7) {
+      message += `...及其他 ${records.length - 7} 筆紀錄\n\n`;
+    }
+
+    message += `━━━━━━━━━━━━━\n`;
+    message += `🏠 失智據點關心您`;
+
+    // 發送 LINE 訊息
+    const response = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+      },
+      body: JSON.stringify({
+        to: userId,
+        messages: [
+          {
+            type: 'text',
+            text: message
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('LINE API Error:', error);
+      return res.status(500).json({ error: '發送 LINE 訊息失敗', details: error });
+    }
+
+    res.json({ success: true, message: `已成功發送 ${records.length} 筆紀錄給家屬` });
+  } catch (error) {
+    console.error('發送健康報告錯誤:', error);
+    res.status(500).json({ error: '發送失敗' });
+  }
+});
+
+// 發送帶圖表的健康報告
+app.post('/api/line/send-health-report-with-chart', async (req, res) => {
+  try {
+    const { userId, elderName, records } = req.body;
+
+    if (!userId || !elderName || !records || records.length === 0) {
+      return res.status(400).json({ error: '缺少必要資料' });
+    }
+
+    // 載入 chartService
+    const { generateBPChartUrl, generateTempChartUrl } = require('./services/chartService');
+
+    // 產生圖表 URL
+    const bpChartUrl = generateBPChartUrl(records, elderName);
+    const tempChartUrl = generateTempChartUrl(records, elderName);
+
+    // 計算統計資料
+    const validBPRecords = records.filter(r => r.systolic && r.diastolic);
+    const avgSystolic = validBPRecords.length > 0
+      ? Math.round(validBPRecords.reduce((sum, r) => sum + parseInt(r.systolic), 0) / validBPRecords.length)
+      : 0;
+    const avgDiastolic = validBPRecords.length > 0
+      ? Math.round(validBPRecords.reduce((sum, r) => sum + parseInt(r.diastolic), 0) / validBPRecords.length)
+      : 0;
+
+    const validTempRecords = records.filter(r => r.temperature);
+    const avgTemp = validTempRecords.length > 0
+      ? (validTempRecords.reduce((sum, r) => sum + parseFloat(r.temperature), 0) / validTempRecords.length).toFixed(1)
+      : 0;
+
+    // 最新一筆
+    const latestRecord = records[0];
+
+    // 問候語陣列（隨機選擇）
+    const greetings = [
+      '💝 感謝您對長輩的關心與愛護！',
+      '🌸 願長輩身體健康、平安喜樂！',
+      '💖 家人的關愛是最好的良藥！',
+      '🍀 祝福長輩每天都有好心情！',
+      '🌷 您的關心讓長輩倍感溫暖！'
+    ];
+    const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+    // 組成摘要訊息
+    let message = `${greeting}\n\n`;
+    message += `📊 ${elderName} 健康報告\n`;
+    message += `━━━━━━━━━━━━━\n`;
+    message += `📅 統計期間：${records[records.length - 1]?.date || ''} ~ ${records[0]?.date || ''}\n`;
+    message += `📋 共 ${records.length} 筆紀錄\n\n`;
+
+    message += `📈 平均數據\n`;
+    if (avgSystolic && avgDiastolic) {
+      const bpIcon = avgSystolic >= 140 ? '🔴' : avgSystolic >= 120 ? '🟡' : '🟢';
+      message += `   血壓：${avgSystolic}/${avgDiastolic} mmHg ${bpIcon}\n`;
+    }
+    if (avgTemp) {
+      const tempIcon = avgTemp > 37.5 ? '🟡' : '🟢';
+      message += `   體溫：${avgTemp}°C ${tempIcon}\n`;
+    }
+
+    message += `\n📍 最新紀錄 (${latestRecord.date})\n`;
+    if (latestRecord.systolic && latestRecord.diastolic) {
+      message += `   血壓：${latestRecord.systolic}/${latestRecord.diastolic} mmHg\n`;
+    }
+    if (latestRecord.temperature) {
+      message += `   體溫：${latestRecord.temperature}°C\n`;
+    }
+
+    message += `\n━━━━━━━━━━━━━\n`;
+    message += `👆 詳細趨勢請看上方圖表\n\n`;
+    message += `🏠 失智據點關心您`;
+
+    // 準備訊息陣列（圖片 + 文字）
+    const messages = [];
+
+    // 血壓圖表
+    if (validBPRecords.length > 0) {
+      messages.push({
+        type: 'image',
+        originalContentUrl: bpChartUrl,
+        previewImageUrl: bpChartUrl
+      });
+    }
+
+    // 體溫圖表
+    if (validTempRecords.length > 0) {
+      messages.push({
+        type: 'image',
+        originalContentUrl: tempChartUrl,
+        previewImageUrl: tempChartUrl
+      });
+    }
+
+    // 文字摘要
+    messages.push({
+      type: 'text',
+      text: message
+    });
+
+    // 發送 LINE 訊息
+    const response = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+      },
+      body: JSON.stringify({
+        to: userId,
+        messages: messages.slice(0, 5) // LINE 限制最多 5 則訊息
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('LINE API Error:', error);
+      return res.status(500).json({ error: '發送 LINE 訊息失敗', details: error });
+    }
+
+    res.json({
+      success: true,
+      message: `已成功發送 ${records.length} 筆紀錄與圖表給家屬`,
+      chartUrls: { bpChart: bpChartUrl, tempChart: tempChartUrl }
+    });
+  } catch (error) {
+    console.error('發送健康報告錯誤:', error);
+    res.status(500).json({ error: '發送失敗' });
+  }
+});
+
+// 產生圖表預覽（不發送 LINE）
+app.post('/api/charts/preview', async (req, res) => {
+  try {
+    const { elderName, records } = req.body;
+
+    if (!elderName || !records || records.length === 0) {
+      return res.status(400).json({ error: '缺少必要資料' });
+    }
+
+    const { generateBPChartUrl, generateTempChartUrl, generateSummaryCardUrl } = require('./services/chartService');
+
+    const bpChartUrl = generateBPChartUrl(records, elderName);
+    const tempChartUrl = generateTempChartUrl(records, elderName);
+
+    // 最新一筆用於摘要卡片
+    const latestRecord = records[0];
+    const summaryCardUrl = generateSummaryCardUrl(latestRecord, {}, elderName);
+
+    res.json({
+      success: true,
+      charts: {
+        bloodPressure: bpChartUrl,
+        temperature: tempChartUrl,
+        summary: summaryCardUrl
+      }
+    });
+  } catch (error) {
+    console.error('產生圖表預覽錯誤:', error);
+    res.status(500).json({ error: '產生圖表失敗' });
   }
 });
 

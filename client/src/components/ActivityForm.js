@@ -32,6 +32,12 @@ function ActivityForm() {
   // 活動主題相關 state
   const [topicList, setTopicList] = useState([]);
   const [isLoadingTopics, setIsLoadingTopics] = useState(true);
+  const [showTopicModal, setShowTopicModal] = useState(false);
+  const [newTopicName, setNewTopicName] = useState('');
+  const [newTopicPurposes, setNewTopicPurposes] = useState({});
+  const [isAddingTopic, setIsAddingTopic] = useState(false);
+
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
 
   // 載入長者名單
   useEffect(() => {
@@ -163,6 +169,88 @@ function ActivityForm() {
     };
     fetchPurposes();
   }, []);
+
+  // 快速新增主題
+  const handleQuickAddTopic = async () => {
+    if (!newTopicName.trim()) {
+      alert('請輸入主題名稱');
+      return;
+    }
+    const selectedList = Object.keys(newTopicPurposes).filter(k => newTopicPurposes[k]);
+    if (selectedList.length === 0) {
+      alert('請至少選擇一個活動目的');
+      return;
+    }
+
+    setIsAddingTopic(true);
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addTopic',
+          name: newTopicName.trim(),
+          purposes: selectedList.join(', ')
+        })
+      });
+
+      alert('新增成功！');
+      setShowTopicModal(false);
+      setNewTopicName('');
+      setNewTopicPurposes({});
+
+      // 重新載入主題列表
+      setTimeout(async () => {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/api/sheets-topics`);
+          setTopicList(response.data || []);
+          // 自動選取新增的主題
+          setFormData(prev => ({
+            ...prev,
+            topic: newTopicName.trim(),
+            selectedPurposes: newTopicPurposes
+          }));
+        } catch (err) {
+          console.error('重新載入主題失敗:', err);
+        }
+      }, 1500);
+    } catch (err) {
+      console.error('新增主題失敗:', err);
+      alert('新增失敗，請稍後再試');
+    } finally {
+      setIsAddingTopic(false);
+    }
+  };
+
+  // 刪除主題
+  const handleDeleteTopic = async (topicName) => {
+    if (!window.confirm(`確定要刪除「${topicName}」嗎？`)) return;
+
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteTopic', name: topicName })
+      });
+      alert('刪除成功！');
+      // 重新載入
+      setTimeout(async () => {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/api/sheets-topics`);
+          setTopicList(response.data || []);
+          if (formData.topic === topicName) {
+            setFormData(prev => ({ ...prev, topic: '', selectedPurposes: {} }));
+          }
+        } catch (err) {
+          console.error('重新載入主題失敗:', err);
+        }
+      }, 1500);
+    } catch (err) {
+      alert('刪除失敗');
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -530,34 +618,65 @@ function ActivityForm() {
 
               <div className="row">
                 <div className="col-md-12 mb-3">
-                  <label htmlFor="topic" className="form-label">活動主題 *</label>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <label htmlFor="topic" className="form-label mb-0">活動主題 *</label>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => setShowTopicModal(true)}
+                    >
+                      ➕ 新增主題
+                    </button>
+                  </div>
                   {isLoadingTopics ? (
                     <div className="text-muted">載入中...</div>
                   ) : (
-                    <select
-                      className="form-select"
-                      id="topic"
-                      name="topic"
-                      value={formData.topic}
-                      onChange={(e) => {
-                        const selectedTopic = topicList.find(t => t.name === e.target.value);
-                        const purposes = selectedTopic?.relatedPurposes || [];
-                        // 自動勾選對應的目的
-                        const purposeObj = {};
-                        purposes.forEach(p => { purposeObj[p] = true; });
-                        setFormData(prev => ({
-                          ...prev,
-                          topic: e.target.value,
-                          selectedPurposes: purposeObj
-                        }));
-                      }}
-                      required
-                    >
-                      <option value="">-- 請選擇活動主題 --</option>
-                      {topicList.map((topic, i) => (
-                        <option key={i} value={topic.name}>{topic.name}</option>
-                      ))}
-                    </select>
+                    <>
+                      <select
+                        className="form-select"
+                        id="topic"
+                        name="topic"
+                        value={formData.topic}
+                        onChange={(e) => {
+                          const selectedTopic = topicList.find(t => t.name === e.target.value);
+                          const purposes = selectedTopic?.relatedPurposes || [];
+                          // 自動勾選對應的目的
+                          const purposeObj = {};
+                          purposes.forEach(p => { purposeObj[p] = true; });
+                          setFormData(prev => ({
+                            ...prev,
+                            topic: e.target.value,
+                            selectedPurposes: purposeObj
+                          }));
+                        }}
+                        required
+                      >
+                        <option value="">-- 請選擇活動主題 --</option>
+                        {topicList.map((topic, i) => (
+                          <option key={i} value={topic.name}>{topic.name}</option>
+                        ))}
+                      </select>
+                      {/* 現有主題快覽（可刪除） */}
+                      {topicList.length > 0 && (
+                        <div className="mt-2">
+                          <small className="text-muted d-block mb-1">現有主題（點擊 ✕ 刪除）：</small>
+                          <div className="d-flex flex-wrap gap-1">
+                            {topicList.map((t, i) => (
+                              <span key={i} className="badge bg-light text-dark border" style={{ fontSize: '0.8rem' }}>
+                                {t.name}
+                                <button
+                                  type="button"
+                                  className="btn-close ms-1"
+                                  style={{ fontSize: '0.5rem', verticalAlign: 'middle' }}
+                                  onClick={() => handleDeleteTopic(t.name)}
+                                  title="刪除此主題"
+                                />
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -943,6 +1062,89 @@ function ActivityForm() {
           </div>
         </div>
       </div>
+
+      {/* 新增主題 Modal */}
+      {showTopicModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title">➕ 快速新增活動主題</h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => {
+                    setShowTopicModal(false);
+                    setNewTopicName('');
+                    setNewTopicPurposes({});
+                  }}
+                />
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label className="form-label">主題名稱 *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="例：認知促進、懷舊治療..."
+                    value={newTopicName}
+                    onChange={(e) => setNewTopicName(e.target.value)}
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">對應活動目的 *（點擊選取）</label>
+                  <div className="border rounded p-3 bg-light">
+                    <div className="d-flex flex-wrap gap-2">
+                      {purposeList.map((p, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className={`btn btn-sm ${newTopicPurposes[p.name] ? 'btn-success' : 'btn-outline-secondary'}`}
+                          onClick={() => {
+                            setNewTopicPurposes(prev => ({
+                              ...prev,
+                              [p.name]: !prev[p.name]
+                            }));
+                          }}
+                          style={{ borderRadius: '20px' }}
+                        >
+                          {newTopicPurposes[p.name] ? '✓ ' : ''}{p.name}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-2 pt-2 border-top">
+                      <small className="text-muted">
+                        已選擇 {Object.values(newTopicPurposes).filter(v => v).length} 個目的
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowTopicModal(false);
+                    setNewTopicName('');
+                    setNewTopicPurposes({});
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleQuickAddTopic}
+                  disabled={isAddingTopic}
+                >
+                  {isAddingTopic ? '新增中...' : '✓ 新增主題'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

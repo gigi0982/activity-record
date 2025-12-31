@@ -37,6 +37,10 @@ function ActivityForm() {
   const [newTopicPurposes, setNewTopicPurposes] = useState({});
   const [isAddingTopic, setIsAddingTopic] = useState(false);
 
+  // 每週課表相關 state
+  const [weeklySchedule, setWeeklySchedule] = useState(null);
+  const [suggestedTopic, setSuggestedTopic] = useState(null);
+
   const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
 
   // 載入長者名單
@@ -133,6 +137,68 @@ function ActivityForm() {
     };
     fetchTopics();
   }, []);
+
+  // 載入每週課表
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      const today = new Date();
+      const quarter = `${today.getFullYear()}-Q${Math.ceil((today.getMonth() + 1) / 3)}`;
+      const key = `weekly_schedule_${quarter}`;
+
+      // 先嘗試從 localStorage 讀取
+      const cached = localStorage.getItem(key);
+      if (cached) {
+        setWeeklySchedule(JSON.parse(cached));
+        return;
+      }
+
+      // 如果沒有快取，從 API 取得
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/sheets-schedule?quarter=${quarter}`);
+        if (response.data.success && response.data.schedule) {
+          const hasData = Object.values(response.data.schedule).some(day =>
+            day.am.topic || day.pm.topic
+          );
+          if (hasData) {
+            setWeeklySchedule(response.data.schedule);
+            localStorage.setItem(key, JSON.stringify(response.data.schedule));
+          }
+        }
+      } catch (err) {
+        console.error('載入每週課表失敗:', err);
+      }
+    };
+    fetchSchedule();
+  }, []);
+
+  // 根據日期和時段自動建議主題
+  useEffect(() => {
+    if (!weeklySchedule || !formData.date) return;
+
+    const selectedDate = new Date(formData.date);
+    const dayIndex = selectedDate.getDay(); // 0=Sunday, 1=Monday, ...
+    const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayKey = dayKeys[dayIndex];
+
+    // 判斷時段：09:00-11:00 為上午, 13:30-15:30 為下午
+    const period = formData.time === '09:00-11:00' ? 'am' : (formData.time === '13:30-15:30' ? 'pm' : null);
+
+    if (weeklySchedule[dayKey] && period) {
+      const scheduleItem = weeklySchedule[dayKey][period];
+      if (scheduleItem && scheduleItem.topic) {
+        setSuggestedTopic({
+          topic: scheduleItem.topic,
+          activityName: scheduleItem.activityName || '',
+          dayName: ['日', '一', '二', '三', '四', '五', '六'][dayIndex],
+          period: period === 'am' ? '上午' : '下午'
+        });
+      } else {
+        setSuggestedTopic(null);
+      }
+    } else {
+      setSuggestedTopic(null);
+    }
+  }, [formData.date, formData.time, weeklySchedule]);
 
   // 活動目的清單
   const [purposeList, setPurposeList] = useState([]);
@@ -618,6 +684,55 @@ function ActivityForm() {
 
               <div className="row">
                 <div className="col-md-12 mb-3">
+                  {/* 建議主題提示區塊 */}
+                  {suggestedTopic && (
+                    <div
+                      className="alert alert-info d-flex justify-content-between align-items-center mb-3"
+                      style={{
+                        background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                        border: '2px solid #2196F3',
+                        borderRadius: '12px'
+                      }}
+                    >
+                      <div>
+                        <strong>📅 週{suggestedTopic.dayName} {suggestedTopic.period} 建議主題：</strong>
+                        <span className="ms-2" style={{ fontSize: '1.1rem', color: '#1565c0' }}>
+                          {suggestedTopic.topic}
+                        </span>
+                        {suggestedTopic.activityName && (
+                          <small className="d-block text-muted mt-1">
+                            活動名稱：{suggestedTopic.activityName}
+                          </small>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          // 套用建議主題
+                          const matchedTopic = topicList.find(t => t.name === suggestedTopic.topic);
+                          const purposes = matchedTopic?.relatedPurposes || [];
+                          const purposeObj = {};
+                          purposes.forEach(p => { purposeObj[p] = true; });
+
+                          setFormData(prev => ({
+                            ...prev,
+                            topic: suggestedTopic.topic,
+                            activityName: suggestedTopic.activityName || prev.activityName,
+                            selectedPurposes: purposeObj
+                          }));
+                        }}
+                        style={{
+                          borderRadius: '20px',
+                          padding: '8px 16px',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        ✓ 套用建議
+                      </button>
+                    </div>
+                  )}
+
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <label htmlFor="topic" className="form-label mb-0">活動主題 *</label>
                     <button

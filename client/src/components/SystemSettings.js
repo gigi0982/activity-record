@@ -9,7 +9,7 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_
 function SystemSettings() {
     // 長者
     const [elders, setElders] = useState([]);
-    const [newElder, setNewElder] = useState({ name: '', level: 'A', identityType: 'normal', notes: '', familyLineId: '' });
+    const [newElder, setNewElder] = useState({ name: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '' });
     const [isLoadingElders, setIsLoadingElders] = useState(true);
     const [editingElder, setEditingElder] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
@@ -68,22 +68,43 @@ function SystemSettings() {
                     identityType: newElder.identityType,
                     identityDesc: identityInfo.desc,
                     fare: identityInfo.fare,
+                    subsidyType: newElder.subsidyType,
                     notes: newElder.notes,
-                    familyLineId: newElder.familyLineId.trim()
+                    familyLineId: ''
                 })
             });
-            alert('新增成功！'); setNewElder({ name: '', level: 'A', identityType: 'normal', notes: '', familyLineId: '' });
-            setTimeout(loadElders, 1500);
-        } catch (err) { alert('新增失敗'); }
-        finally { setIsAdding(false); }
+            setNewElder({ name: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '' });
+            setIsAdding(false);
+            // 使用 setTimeout 確保 alert 能顯示
+            setTimeout(() => {
+                alert('新增成功！資料將在 1-2 秒後更新');
+                setTimeout(loadElders, 1500);
+            }, 100);
+        } catch (err) {
+            setIsAdding(false);
+            alert('新增失敗');
+        }
     };
 
     const handleDeleteElder = async (name) => {
-        if (!window.confirm(`確定要刪除「${name}」嗎？`)) return;
+        if (!window.confirm(`確定要刪除「${name}」嗎？\n\n此操作無法復原！`)) return;
+
         try {
-            await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteElder', name }) });
-            alert('刪除成功！'); setTimeout(loadElders, 1500);
-        } catch (err) { alert('刪除失敗'); }
+            // 使用 GET 請求繞過 POST 限制
+            const url = `${GOOGLE_SCRIPT_URL}?action=deleteElder&name=${encodeURIComponent(name)}`;
+            const response = await fetch(url);
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`已成功刪除「${name}」！`);
+                loadElders();
+            } else {
+                alert(`刪除失敗：${result.message || result.error || '未知錯誤'}`);
+            }
+        } catch (err) {
+            console.error('刪除失敗:', err);
+            alert('刪除請求失敗，請稍後再試');
+        }
     };
 
     // 編輯長者
@@ -93,6 +114,7 @@ function SystemSettings() {
             name: elder.name,
             level: elder.level || 'A',
             identityType: elder.identityType || 'normal',
+            subsidyType: elder.subsidyType || 'subsidy',
             notes: elder.notes || '',
             familyLineId: elder.familyLineId || ''
         });
@@ -117,6 +139,7 @@ function SystemSettings() {
                     identityType: editingElder.identityType,
                     identityDesc: identityInfo.desc,
                     fare: identityInfo.fare,
+                    subsidyType: editingElder.subsidyType,
                     notes: editingElder.notes,
                     familyLineId: editingElder.familyLineId.trim()
                 })
@@ -144,38 +167,39 @@ function SystemSettings() {
                         <div className="card-header bg-success text-white"><h5 className="mb-0">➕ 新增長者</h5></div>
                         <div className="card-body">
                             <div className="row align-items-end">
-                                <div className="col-md-3 mb-2">
+                                <div className="col-6 col-md-2 mb-2">
                                     <label className="form-label">姓名 *</label>
-                                    <input type="text" className="form-control" placeholder="長者姓名" value={newElder.name} onChange={(e) => setNewElder({ ...newElder, name: e.target.value })} />
+                                    <input type="text" className="form-control form-control-sm" placeholder="長者姓名" value={newElder.name} onChange={(e) => setNewElder({ ...newElder, name: e.target.value })} />
                                 </div>
-                                <div className="col-md-2 mb-2">
-                                    <label className="form-label">能力分級 *</label>
-                                    <select className="form-select" value={newElder.level} onChange={(e) => setNewElder({ ...newElder, level: e.target.value })}>
-                                        <option value="A">A - 輕度</option>
-                                        <option value="B">B - 中度</option>
-                                        <option value="C">C - 重度</option>
+                                <div className="col-6 col-md-2 mb-2">
+                                    <label className="form-label">能力分級</label>
+                                    <select className="form-select form-select-sm" value={newElder.level} onChange={(e) => setNewElder({ ...newElder, level: e.target.value })}>
+                                        <option value="A">A-輕度</option>
+                                        <option value="B">B-中度</option>
+                                        <option value="C">C-重度</option>
                                     </select>
                                 </div>
-                                <div className="col-md-2 mb-2">
-                                    <label className="form-label">身份類別 *</label>
-                                    <select className="form-select" value={newElder.identityType} onChange={(e) => setNewElder({ ...newElder, identityType: e.target.value })}>
-                                        <option value="normal">一般戶 ($18)</option>
-                                        <option value="mediumLow">中低收 ($5)</option>
-                                        <option value="low">低收 ($0)</option>
+                                <div className="col-6 col-md-2 mb-2">
+                                    <label className="form-label">身份類別</label>
+                                    <select className="form-select form-select-sm" value={newElder.identityType} onChange={(e) => setNewElder({ ...newElder, identityType: e.target.value })}>
+                                        <option value="normal">一般戶</option>
+                                        <option value="mediumLow">中低收</option>
+                                        <option value="low">低收</option>
                                     </select>
                                 </div>
-                                <div className="col-md-2 mb-2">
+                                <div className="col-6 col-md-2 mb-2">
+                                    <label className="form-label">補助/自費</label>
+                                    <select className="form-select form-select-sm" value={newElder.subsidyType} onChange={(e) => setNewElder({ ...newElder, subsidyType: e.target.value })}>
+                                        <option value="subsidy">補助</option>
+                                        <option value="self">自費</option>
+                                    </select>
+                                </div>
+                                <div className="col-6 col-md-2 mb-2">
                                     <label className="form-label">備註</label>
-                                    <input type="text" className="form-control" placeholder="選填" value={newElder.notes} onChange={(e) => setNewElder({ ...newElder, notes: e.target.value })} />
+                                    <input type="text" className="form-control form-control-sm" placeholder="選填" value={newElder.notes} onChange={(e) => setNewElder({ ...newElder, notes: e.target.value })} />
                                 </div>
-                                <div className="col-md-3 mb-2">
-                                    <label className="form-label">家屬 LINE ID</label>
-                                    <input type="text" className="form-control" placeholder="選填（如 U1234...）" value={newElder.familyLineId} onChange={(e) => setNewElder({ ...newElder, familyLineId: e.target.value })} />
-                                </div>
-                            </div>
-                            <div className="row mt-2">
-                                <div className="col-12 text-end">
-                                    <button className="btn btn-success" onClick={handleAddElder} disabled={isAdding}>{isAdding ? '新增中...' : '➕ 新增長者'}</button>
+                                <div className="col-6 col-md-2 mb-2">
+                                    <button className="btn btn-success btn-sm w-100" onClick={handleAddElder} disabled={isAdding}>{isAdding ? '新增中...' : '➕ 新增'}</button>
                                 </div>
                             </div>
                         </div>
@@ -190,17 +214,18 @@ function SystemSettings() {
                                 elders.length === 0 ? <div className="text-muted text-center py-3">尚無資料</div> :
                                     <div className="table-responsive">
                                         <table className="table table-hover table-sm">
-                                            <thead className="table-light"><tr><th>姓名</th><th>分級</th><th>身份類別</th><th>車資</th><th>家屬 LINE</th><th>備註</th><th>操作</th></tr></thead>
+                                            <thead className="table-light"><tr><th>姓名</th><th>分級</th><th>身份類別</th><th>補助/自費</th><th>車資</th><th>家屬 LINE</th><th>備註</th><th>操作</th></tr></thead>
                                             <tbody>
                                                 {elders.map((elder, i) => {
                                                     const info = getLevelInfo(elder.level);
                                                     const identityInfo = getIdentityInfo(elder.identityType);
                                                     return (<tr key={i}>
                                                         <td><strong>{elder.name}</strong></td>
-                                                        <td><span className="badge" style={{ backgroundColor: info.color }}>{elder.level}-{elder.levelDesc || info.desc}</span></td>
+                                                        <td><span className="badge" style={{ backgroundColor: info.color }}>{elder.level}-{info.desc}</span></td>
                                                         <td><span className="badge" style={{ backgroundColor: identityInfo.color }}>{elder.identityDesc || identityInfo.desc}</span></td>
+                                                        <td><span className={`badge ${elder.subsidyType === 'self' ? 'bg-warning text-dark' : 'bg-success'}`}>{elder.subsidyType === 'self' ? '自費' : '補助'}</span></td>
                                                         <td><strong>${elder.fare !== undefined ? elder.fare : identityInfo.fare}</strong></td>
-                                                        <td>{elder.familyLineId ? <span className="badge bg-success">✓</span> : <span className="text-muted">-</span>}</td>
+                                                        <td>{elder.familyLineId && elder.familyLineId.trim() ? <span className="badge bg-success">✓</span> : <span className="text-muted">-</span>}</td>
                                                         <td><small className="text-muted">{elder.notes || '-'}</small></td>
                                                         <td>
                                                             <button className="btn btn-outline-primary btn-sm me-1" onClick={() => handleEditElder(elder)}>✏️</button>
@@ -249,6 +274,16 @@ function SystemSettings() {
                                             <option value="normal">一般戶 ($18)</option>
                                             <option value="mediumLow">中低收 ($5)</option>
                                             <option value="low">低收 ($0)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="row">
+                                    <div className="col-md-6 mb-3">
+                                        <label className="form-label">補助/自費</label>
+                                        <select className="form-select" value={editingElder.subsidyType}
+                                            onChange={(e) => setEditingElder({ ...editingElder, subsidyType: e.target.value })}>
+                                            <option value="subsidy">補助</option>
+                                            <option value="self">自費</option>
                                         </select>
                                     </div>
                                 </div>

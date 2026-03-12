@@ -8,7 +8,7 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_
 function ElderManagement() {
     const [elders, setElders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [newElder, setNewElder] = useState({ name: '', level: 'A', notes: '' });
+    const [newElder, setNewElder] = useState({ name: '', level: 'A', subsidyType: 'subsidy', notes: '' });
     const [isAdding, setIsAdding] = useState(false);
 
     // 載入長者名單
@@ -59,12 +59,13 @@ function ElderManagement() {
                     level: newElder.level,
                     levelDesc: levelInfo.desc,
                     scoreRange: levelInfo.range,
+                    subsidyType: newElder.subsidyType,
                     notes: newElder.notes
                 })
             });
 
             alert('新增成功！');
-            setNewElder({ name: '', level: 'A', notes: '' });
+            setNewElder({ name: '', level: 'A', subsidyType: 'subsidy', notes: '' });
 
             // 等待一下再重新載入
             setTimeout(loadElders, 1500);
@@ -145,7 +146,18 @@ function ElderManagement() {
                                 <option value="C">C - 重度</option>
                             </select>
                         </div>
-                        <div className="col-md-4 mb-2">
+                        <div className="col-md-2 mb-2">
+                            <label className="form-label">補助/自費 *</label>
+                            <select
+                                className="form-select"
+                                value={newElder.subsidyType}
+                                onChange={(e) => setNewElder({ ...newElder, subsidyType: e.target.value })}
+                            >
+                                <option value="subsidy">補助</option>
+                                <option value="self">自費</option>
+                            </select>
+                        </div>
+                        <div className="col-md-3 mb-2">
                             <label className="form-label">備註</label>
                             <input
                                 type="text"
@@ -190,6 +202,7 @@ function ElderManagement() {
                                     <tr>
                                         <th>姓名</th>
                                         <th>能力分級</th>
+                                        <th>補助/自費</th>
                                         <th>建議評分</th>
                                         <th>備註</th>
                                         <th style={{ width: '80px' }}>操作</th>
@@ -207,6 +220,11 @@ function ElderManagement() {
                                                         style={{ backgroundColor: levelInfo.color }}
                                                     >
                                                         {elder.level} - {elder.levelDesc || levelInfo.desc}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className={`badge ${elder.subsidyType === 'self' ? 'bg-warning text-dark' : 'bg-success'}`}>
+                                                        {elder.subsidyType === 'self' ? '自費' : '補助'}
                                                     </span>
                                                 </td>
                                                 <td>{elder.scoreRange || levelInfo.range}</td>

@@ -6,9 +6,17 @@ import { addActivity } from '../utils/storage';
 
 function ActivityForm() {
   const navigate = useNavigate();
+
+  // 根據現在時間決定預設時段
+  const getDefaultTime = () => {
+    const hour = new Date().getHours();
+    // 如果是下午 12 點之後，預設選下午時段
+    return hour >= 12 ? '13:30-15:30' : '09:00-11:00';
+  };
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0], // 預設今天日期
-    time: '', // 活動時間
+    time: getDefaultTime(), // 根據現在時間預設時段
     activityName: '', // 活動名稱
     purpose: '',
     topic: '',
@@ -771,26 +779,6 @@ function ActivityForm() {
                           <option key={i} value={topic.name}>{topic.name}</option>
                         ))}
                       </select>
-                      {/* 現有主題快覽（可刪除） */}
-                      {topicList.length > 0 && (
-                        <div className="mt-2">
-                          <small className="text-muted d-block mb-1">現有主題（點擊 ✕ 刪除）：</small>
-                          <div className="d-flex flex-wrap gap-1">
-                            {topicList.map((t, i) => (
-                              <span key={i} className="badge bg-light text-dark border" style={{ fontSize: '0.8rem' }}>
-                                {t.name}
-                                <button
-                                  type="button"
-                                  className="btn-close ms-1"
-                                  style={{ fontSize: '0.5rem', verticalAlign: 'middle' }}
-                                  onClick={() => handleDeleteTopic(t.name)}
-                                  title="刪除此主題"
-                                />
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </>
                   )}
                 </div>

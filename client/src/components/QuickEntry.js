@@ -36,7 +36,9 @@ function QuickEntry() {
                     mealFee: false,  // 長者餐費
                     caregiverAM: false,
                     caregiverPM: false,
-                    caregiverMeal: false,  // 外勞餐費（改名）
+                    caregiverMeal: false,  // 外勞餐費
+                    selfAM: false,  // 自費AM
+                    selfPM: false,  // 自費PM
                 })));
 
                 const quarter = `${today.getFullYear()}-Q${Math.ceil((today.getMonth() + 1) / 3)}`;
@@ -112,9 +114,29 @@ function QuickEntry() {
         caregiverAM: elders.filter(e => e.caregiverAM).length,
         caregiverPM: elders.filter(e => e.caregiverPM).length,
         caregiverMeal: elders.filter(e => e.caregiverMeal).length,
+        selfAM: elders.filter(e => e.selfAM).length,
+        selfPM: elders.filter(e => e.selfPM).length,
+    };
+
+    // 檢查自費長者是否有勾選自上或自下
+    const getSelfFundedWarnings = () => {
+        return elders.filter(e =>
+            e.attended &&
+            e.subsidyType === 'self' &&
+            !e.selfAM && !e.selfPM
+        ).map(e => e.name);
     };
 
     const handleSave = async () => {
+        // 檢查自費長者是否有勾選自上或自下
+        const warnings = getSelfFundedWarnings();
+        if (warnings.length > 0) {
+            const proceed = window.confirm(
+                `⚠️ 以下自費長者未選擇「自上」或「自下」：\n\n${warnings.join('、')}\n\n自費長者每次收費 200 元，請確認是否需要勾選。\n\n點擊「確定」繼續儲存，「取消」返回修改。`
+            );
+            if (!proceed) return;
+        }
+
         setIsSaving(true);
         try {
             const attendees = elders.filter(e => e.attended).map(e => e.name);
@@ -218,7 +240,7 @@ function QuickEntry() {
             {/* 表頭 */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 36px 36px 36px 36px 10px 36px 36px 36px',
+                gridTemplateColumns: '1fr 36px 36px 36px 36px 36px 36px 10px 36px 36px 36px',
                 gap: '4px', padding: '10px 8px',
                 backgroundColor: '#f0f0f0', borderRadius: '10px 10px 0 0',
                 fontWeight: 'bold', fontSize: '12px', textAlign: 'center'
@@ -228,6 +250,8 @@ function QuickEntry() {
                 <div style={{ color: '#2196F3' }}>來</div>
                 <div style={{ color: '#9C27B0' }}>回</div>
                 <div style={{ color: '#FF9800' }}>餐</div>
+                <div style={{ color: '#009688' }}>自上</div>
+                <div style={{ color: '#607D8B' }}>自下</div>
                 <div></div>
                 <div style={{ color: '#FF5722' }}>外來</div>
                 <div style={{ color: '#E91E63' }}>外回</div>
@@ -241,18 +265,39 @@ function QuickEntry() {
                         key={elder.id || index}
                         style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 36px 36px 36px 36px 10px 36px 36px 36px',
+                            gridTemplateColumns: '1fr 36px 36px 36px 36px 36px 36px 10px 36px 36px 36px',
                             gap: '4px', padding: '10px 8px',
                             borderBottom: '1px solid #eee',
                             alignItems: 'center',
                             backgroundColor: elder.attended ? '#E8F5E9' : 'white',
                         }}
                     >
-                        <div style={{ fontWeight: 'bold', fontSize: '15px' }}>{elder.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '15px' }}>{elder.name}</span>
+                            {elder.subsidyType === 'self' && (
+                                <span style={{
+                                    fontSize: '10px',
+                                    backgroundColor: '#FFC107',
+                                    color: '#333',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontWeight: 'bold'
+                                }}>自費</span>
+                            )}
+                            {elder.attended && elder.subsidyType === 'self' && !elder.selfAM && !elder.selfPM && (
+                                <span style={{
+                                    fontSize: '16px',
+                                    color: '#f44336',
+                                    animation: 'pulse 1s infinite'
+                                }} title="請勾選自上或自下">⚠️</span>
+                            )}
+                        </div>
                         <CheckBox checked={elder.attended} onChange={() => toggleAttended(index)} color="#4CAF50" />
                         <CheckBox checked={elder.pickupAM} onChange={() => toggle(index, 'pickupAM')} disabled={!elder.attended} color="#2196F3" />
                         <CheckBox checked={elder.pickupPM} onChange={() => toggle(index, 'pickupPM')} disabled={!elder.attended} color="#9C27B0" />
                         <CheckBox checked={elder.mealFee} onChange={() => toggle(index, 'mealFee')} disabled={!elder.attended} color="#FF9800" />
+                        <CheckBox checked={elder.selfAM} onChange={() => toggle(index, 'selfAM')} disabled={!elder.attended} color="#009688" />
+                        <CheckBox checked={elder.selfPM} onChange={() => toggle(index, 'selfPM')} disabled={!elder.attended} color="#607D8B" />
                         <div style={{ width: '2px', height: '100%', backgroundColor: '#ddd', margin: '0 auto' }}></div>
                         <CheckBox checked={elder.caregiverAM} onChange={() => toggle(index, 'caregiverAM')} disabled={!elder.attended} color="#FF5722" />
                         <CheckBox checked={elder.caregiverPM} onChange={() => toggle(index, 'caregiverPM')} disabled={!elder.attended} color="#E91E63" />

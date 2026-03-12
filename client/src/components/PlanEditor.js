@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config/api';
 
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK19-9KHzqb_wPHntBlExiOeI-dxUNrZQM4RT2w-Ng6S2NqywtDFSenbsVwIevIp3twQ/exec';
+
 function PlanEditor() {
     // 當前季度
     const getQuarter = () => {
@@ -10,6 +12,28 @@ function PlanEditor() {
         const year = new Date().getFullYear();
         const q = Math.ceil(month / 3);
         return `${year}-Q${q}`;
+    };
+
+    // 動態生成季度選項（從 2024 Q4 到 2027 Q4）
+    const getQuarterOptions = () => {
+        const options = [];
+        for (let year = 2024; year <= 2027; year++) {
+            for (let q = 1; q <= 4; q++) {
+                // 從 2024 Q4 開始
+                if (year === 2024 && q < 4) continue;
+                options.push(`${year}-Q${q}`);
+            }
+        }
+        return options;
+    };
+
+    // 取得上一季
+    const getPreviousQuarter = (quarter) => {
+        const [year, q] = quarter.split('-Q').map(Number);
+        if (q === 1) {
+            return `${year - 1}-Q4`;
+        }
+        return `${year}-Q${q - 1}`;
     };
 
     const [selectedQuarter, setSelectedQuarter] = useState(getQuarter());
@@ -117,11 +141,32 @@ function PlanEditor() {
         }));
     };
 
-    // 儲存課表
-    const saveSchedule = () => {
+    // 儲存課表（同步到 Google Sheets 和 localStorage）
+    const saveSchedule = async () => {
         const key = `weekly_schedule_${selectedQuarter}`;
+
+        // 先存到 localStorage
         localStorage.setItem(key, JSON.stringify(weeklySchedule));
-        alert('課表已儲存！');
+
+        // 同步到 Google Sheets
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'saveSchedule',
+                    quarter: selectedQuarter,
+                    schedule: weeklySchedule
+                })
+            });
+            setCloudSyncStatus('synced');
+            alert('課表已儲存並同步到雲端！');
+        } catch (err) {
+            console.error('同步課表失敗:', err);
+            setCloudSyncStatus('local');
+            alert('課表已儲存到本地，但雲端同步失敗');
+        }
     };
 
     // 清空課表
@@ -136,6 +181,47 @@ function PlanEditor() {
         };
         setWeeklySchedule(empty);
         localStorage.removeItem(`weekly_schedule_${selectedQuarter}`);
+    };
+
+    // 複製上一季課表
+    const copyFromPreviousQuarter = async () => {
+        const prevQuarter = getPreviousQuarter(selectedQuarter);
+
+        // 先詢問確認
+        if (!window.confirm(`確定要將 ${prevQuarter} 的課表複製到 ${selectedQuarter} 嗎？\n\n這會覆蓋目前的設定。`)) {
+            return;
+        }
+
+        const prevKey = `weekly_schedule_${prevQuarter}`;
+
+        // 先嘗試從 localStorage 讀取
+        let prevSchedule = null;
+        const cached = localStorage.getItem(prevKey);
+        if (cached) {
+            prevSchedule = JSON.parse(cached);
+        } else {
+            // 從 API 讀取
+            try {
+                const response = await axios.get(`${API_BASE_URL}/api/sheets-schedule?quarter=${prevQuarter}`);
+                if (response.data.success && response.data.schedule) {
+                    prevSchedule = response.data.schedule;
+                }
+            } catch (err) {
+                console.error('讀取上一季課表失敗:', err);
+            }
+        }
+
+        if (prevSchedule) {
+            const hasData = Object.values(prevSchedule).some(day => day.am?.topic || day.pm?.topic);
+            if (hasData) {
+                setWeeklySchedule(prevSchedule);
+                alert(`已成功複製 ${prevQuarter} 的課表！\n記得點擊「儲存課表」保存變更。`);
+            } else {
+                alert(`${prevQuarter} 沒有課表資料可以複製。`);
+            }
+        } else {
+            alert(`找不到 ${prevQuarter} 的課表資料。`);
+        }
     };
 
     // 渲染課表格子
@@ -197,12 +283,17 @@ function PlanEditor() {
                         value={selectedQuarter}
                         onChange={(e) => setSelectedQuarter(e.target.value)}
                     >
-                        <option value="2024-Q4">2024 Q4</option>
-                        <option value="2025-Q1">2025 Q1</option>
-                        <option value="2025-Q2">2025 Q2</option>
-                        <option value="2025-Q3">2025 Q3</option>
-                        <option value="2025-Q4">2025 Q4</option>
+                        {getQuarterOptions().map(q => (
+                            <option key={q} value={q}>{q.replace('-', ' ')}</option>
+                        ))}
                     </select>
+                    <button
+                        className="btn btn-outline-secondary"
+                        onClick={copyFromPreviousQuarter}
+                        title={`複製 ${getPreviousQuarter(selectedQuarter)} 的課表`}
+                    >
+                        📋 複製上一季
+                    </button>
                 </div>
             </div>
 

@@ -66,18 +66,27 @@ module.exports = async (req, res) => {
         const data = parseCSV(csv);
 
         // 轉換為系統需要的格式
-        const elders = data.map((row, index) => ({
-            id: `E${index + 1}`,
-            name: row['姓名'] || '',
-            level: row['分級'] || 'A',
-            levelDesc: row['分級說明'] || '',
-            scoreRange: row['建議評分'] || '',
-            identityType: row['身份類別'] || 'normal',
-            identityDesc: row['身份說明'] || '',
-            fare: row['車資'] ? parseInt(row['車資']) : 18,
-            familyLineId: row['家屬LINE'] || row['家屬LINE ID'] || '',
-            notes: row['備註'] || ''
-        })).filter(e => e.name); // 過濾掉沒有姓名的空行
+        const elders = data.map((row, index) => {
+            // 過濾掉錯誤的 familyLineId 值（如 'subsidy', 'self' 等）
+            let familyLineId = row['家屬LINE'] || row['家屬LINE ID'] || '';
+            if (familyLineId === 'subsidy' || familyLineId === 'self' || familyLineId === '補助' || familyLineId === '自費') {
+                familyLineId = '';
+            }
+
+            return {
+                id: `E${index + 1}`,
+                name: row['姓名'] || '',
+                level: row['分級'] || 'A',
+                levelDesc: row['分級說明'] || '',
+                scoreRange: row['建議評分'] || '',
+                subsidyType: row['補助類型'] || row['補助/自費'] || 'subsidy',
+                identityType: row['身份類別'] || 'normal',
+                identityDesc: row['身份說明'] || '',
+                fare: row['車資'] ? parseInt(row['車資']) : 18,
+                familyLineId: familyLineId,
+                notes: row['備註'] || ''
+            };
+        }).filter(e => e.name); // 過濾掉沒有姓名的空行
 
         res.status(200).json(elders);
 

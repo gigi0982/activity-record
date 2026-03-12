@@ -5,7 +5,8 @@ import { getAuthSecret, SESSION_COOKIE, verifySessionToken } from '@/lib/session
 export const runtime = 'nodejs';
 
 export async function GET() {
-    const token = cookies().get(SESSION_COOKIE)?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE)?.value;
     if (!token) {
         return NextResponse.json({ user: null });
     }

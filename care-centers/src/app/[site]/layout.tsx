@@ -9,9 +9,9 @@ export default async function SiteLayout({
     params,
 }: {
     children: React.ReactNode;
-    params: { site: string };
+    params: Promise<{ site: string }>;
 }) {
-    const { site: siteId } = params;
+    const { site: siteId } = await params;
     const siteConfig = getSiteConfig(siteId);
 
     if (!siteConfig) {

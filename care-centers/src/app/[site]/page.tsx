@@ -1,12 +1,8 @@
 import Link from 'next/link';
 import { getSiteConfig } from '@/config/sites';
 
-interface PageProps {
-    params: { site: string };
-}
-
-export default async function SiteDashboard({ params }: PageProps) {
-    const { site: siteId } = params;
+export default async function SiteDashboard({ params }: { params: Promise<{ site: string }> }) {
+    const { site: siteId } = await params;
     const siteConfig = getSiteConfig(siteId);
 
     if (!siteConfig) {

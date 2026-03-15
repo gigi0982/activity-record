@@ -1,4 +1,6 @@
 {
   "version": 2,
-  "rootDirectory": "care-centers"
+  "framework": "nextjs",
+  "buildCommand": "cd care-centers && npm install && npm run build",
+  "outputDirectory": "care-centers/.next"
 }

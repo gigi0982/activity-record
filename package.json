@@ -1,0 +1,9 @@
+{
+    "name": "activity-record-monorepo",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "install:app": "cd care-centers && npm install",
+        "build:app": "cd care-centers && npm run build"
+    }
+}

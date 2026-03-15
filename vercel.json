@@ -1,6 +1,5 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "outputDirectory": "care-centers/.next"
+  "buildCommand": "cd care-centers && npm install && npm run build && cp -r .next ../.next && cp -r .vercel ../.vercel 2>/dev/null || true"
 }

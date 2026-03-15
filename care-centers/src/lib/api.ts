@@ -3,7 +3,7 @@ const UPLOAD_TIMEOUT_MS = 60000;
 
 // 取得據點的 API Base URL
 export function getApiBaseUrl(): string {
-    return process.env.NEXT_PUBLIC_API_URL || 'https://activity-record-six.vercel.app';
+    return process.env.NEXT_PUBLIC_API_URL || 'https://activity-record-gyb2.vercel.app';
 }
 
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs: number = DEFAULT_TIMEOUT_MS) {

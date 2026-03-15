@@ -44,7 +44,7 @@ export default function HomePage() {
         </div>
 
         <div className="mt-10 text-center text-gray-500 text-sm">
-          © 2026 失智據點管理系統 | 版本 1.0
+          © 2026 失智據點管理系統 | 版本 1.1 (Multi-Site)
         </div>
       </div>
     </main>

@@ -1,0 +1,12 @@
+{
+  "name": "activity-record",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "next": "15.2.4"
+  },
+  "scripts": {
+    "build": "cd care-centers && npm install && npm run build",
+    "dev": "cd care-centers && npm run dev"
+  }
+}

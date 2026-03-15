@@ -19,7 +19,11 @@ interface SessionPayload {
 export function getAuthSecret(): string {
     const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
     if (!secret) {
-        throw new Error('AUTH_SECRET is not set');
+        // 在建立期間提供預設值，避免 crash
+        if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+            throw new Error('AUTH_SECRET is not set');
+        }
+        return 'build-time-fallback-secret-do-not-use-in-production';
     }
     return secret;
 }

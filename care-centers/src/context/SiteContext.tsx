@@ -12,15 +12,15 @@ interface SiteContextType {
 const SiteContext = createContext<SiteContextType | undefined>(undefined);
 
 export function SiteProvider({ children, siteId }: { children: ReactNode; siteId?: string }) {
-    const [currentSite, setCurrentSite] = useState<SiteConfig | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [currentSite, setCurrentSite] = useState<SiteConfig | null>(() => siteId ? getSiteConfig(siteId) || null : null);
+    const [isLoading, setIsLoading] = useState(!siteId);
 
     useEffect(() => {
         if (siteId) {
             const site = getSiteConfig(siteId);
             setCurrentSite(site || null);
+            setIsLoading(false);
         }
-        setIsLoading(false);
     }, [siteId]);
 
     const setSiteId = (newSiteId: string) => {

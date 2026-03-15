@@ -46,10 +46,6 @@ export default function TopicsPage() {
     const [newTopicName, setNewTopicName] = useState('');
     const [selectedPurposes, setSelectedPurposes] = useState<string[]>([]);
 
-    useEffect(() => {
-        loadTopics();
-    }, []);
-
     const loadTopics = () => {
         if (typeof window === 'undefined') return;
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -65,6 +61,10 @@ export default function TopicsPage() {
         setTopics(newTopics);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newTopics));
     };
+
+    useEffect(() => {
+        loadTopics();
+    }, []);
 
     const togglePurpose = (purpose: string) => {
         setSelectedPurposes(prev =>
@@ -163,8 +163,8 @@ export default function TopicsPage() {
                                     key={purpose}
                                     onClick={() => togglePurpose(purpose)}
                                     className={`px-3 py-1.5 rounded-full text-sm transition ${selectedPurposes.includes(purpose)
-                                            ? 'bg-orange-500 text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        ? 'bg-orange-500 text-white'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
                                 >
                                     {purpose}
@@ -214,8 +214,8 @@ export default function TopicsPage() {
                                             key={purpose}
                                             onClick={() => togglePurpose(purpose)}
                                             className={`px-3 py-1.5 rounded-full text-sm transition ${selectedPurposes.includes(purpose)
-                                                    ? 'bg-orange-500 text-white'
-                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                ? 'bg-orange-500 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                                 }`}
                                         >
                                             {purpose}

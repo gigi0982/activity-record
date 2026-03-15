@@ -21,14 +21,14 @@ export default function UsersPage() {
 
     const sites = getAllSites();
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
-
     const loadUsers = async () => {
         const data = await userManagementApi.getUsers();
         setUsers(data as User[]);
     };
+
+    useEffect(() => {
+        loadUsers();
+    }, []);
 
     const handleAddUser = async () => {
         setError('');

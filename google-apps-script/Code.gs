@@ -864,7 +864,7 @@ function getUsers(siteId) {
   
   if (!sheet) {
     sheet = ss.insertSheet('用戶帳號');
-    sheet.appendRow(['姓名', '密碼', '角色', '據點', '建立時間', '上次登入']);
+    sheet.appendRow(['帳號', '密碼', '角色', '據點', '建立時間', '上次登入']);
     sheet.appendRow(['admin', 'admin2026', 'superAdmin', 'all', new Date().toISOString(), '']);
     sheet.appendRow(['test', 'test123', 'staff', 'sanxing', new Date().toISOString(), '']);
     return [{ name: 'admin', role: 'superAdmin', siteId: 'all' }];
@@ -917,6 +917,95 @@ function loginUser(name, password) {
 // ===================================================
 // 費用設定 API
 // ===================================================
+
+// ===================================================
+// 新增用戶 API
+// ===================================================
+function addUser(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('用戶帳號');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('用戶帳號');
+    sheet.appendRow(['帳號', '密碼', '角色', '據點', '建立時間', '上次登入']);
+  }
+  
+  // 檢查是否已存在
+  const data2 = sheet.getDataRange().getValues();
+  for (let i = 1; i < data2.length; i++) {
+    if (String(data2[i][0]).trim() === String(data.name).trim()) {
+      return { success: false, message: '帳號已存在' };
+    }
+  }
+  
+  sheet.appendRow([
+    data.name,
+    data.password,
+    data.role || 'staff',
+    data.siteId || 'all',
+    new Date().toISOString(),
+    ''
+  ]);
+  
+  return { success: true, message: '帳號新增成功' };
+}
+
+// ===================================================
+// 刪除用戶 API
+// ===================================================
+function deleteUser(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('用戶帳號');
+  if (!sheet) return { success: false, message: '工作表不存在' };
+  
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === String(name).trim()) {
+      sheet.deleteRow(i + 1);
+      return { success: true, message: '帳號已刪除' };
+    }
+  }
+  return { success: false, message: '找不到該帳號' };
+}
+
+// ===================================================
+// 重設密碼 API
+// ===================================================
+function resetPassword(name, newPassword) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('用戶帳號');
+  if (!sheet) return { success: false, message: '工作表不存在' };
+  
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === String(name).trim()) {
+      sheet.getRange(i + 1, 2).setValue(newPassword);
+      return { success: true, message: '密碼已重設' };
+    }
+  }
+  return { success: false, message: '找不到該帳號' };
+}
+
+// ===================================================
+// 變更密碼 API
+// ===================================================
+function changePassword(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('用戶帳號');
+  if (!sheet) return { success: false, message: '工作表不存在' };
+  
+  const sheetData = sheet.getDataRange().getValues();
+  for (let i = 1; i < sheetData.length; i++) {
+    if (String(sheetData[i][0]).trim() === String(data.name).trim()) {
+      if (String(sheetData[i][1]) !== String(data.oldPassword)) {
+        return { success: false, message: '舊密碼錯誤' };
+      }
+      sheet.getRange(i + 1, 2).setValue(data.newPassword);
+      return { success: true, message: '密碼已變更' };
+    }
+  }
+  return { success: false, message: '找不到該帳號' };
+}
 
 // ===================================================
 // 據點密碼驗證 API

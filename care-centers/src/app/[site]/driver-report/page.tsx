@@ -21,6 +21,24 @@ interface DriverReportData {
     totalAmount: number;
 }
 
+// 羅東保底規則
+const LUODONG_GUARANTEE = {
+    minDaily: 1800,        // 每日保底
+    threshold: 20,         // 保底人次上限
+    extraRate: 90,         // 超過人次加收
+};
+
+function calcDailyAmount(pickupCount: number, driverRate: number, siteId: string): number {
+    if (siteId === 'luodong') {
+        if (pickupCount === 0) return 0;
+        if (pickupCount <= LUODONG_GUARANTEE.threshold) {
+            return LUODONG_GUARANTEE.minDaily;
+        }
+        return LUODONG_GUARANTEE.minDaily + (pickupCount - LUODONG_GUARANTEE.threshold) * LUODONG_GUARANTEE.extraRate;
+    }
+    return pickupCount * driverRate;
+}
+
 export default function DriverReportPage() {
     const params = useParams();
     const siteId = params.site as string;
@@ -161,33 +179,74 @@ export default function DriverReportPage() {
                     )}
 
                     {/* 明細表格 */}
-                    {!isLoading && !error && report && report.days.length > 0 && (
+                    {!isLoading && !error && report && report.days.length > 0 && (() => {
+                        const isLuodong = siteId === 'luodong';
+                        const recalcDays = report.days.map(day => ({
+                            ...day,
+                            calcAmount: calcDailyAmount(day.pickupCount, report.driverRate, siteId),
+                        }));
+                        const recalcTotal = recalcDays.reduce((s, d) => s + d.calcAmount, 0);
+                        const recalcTotalTrips = recalcDays.reduce((s, d) => s + d.pickupCount, 0);
+
+                        return (
                         <>
+                            {/* 羅東保底規則說明 */}
+                            {isLuodong && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-sm">
+                                    <p className="font-bold text-amber-800 mb-1">📌 羅東據點司機薪資規則</p>
+                                    <ul className="list-disc list-inside text-amber-700 space-y-0.5">
+                                        <li>每日保底 ${LUODONG_GUARANTEE.minDaily.toLocaleString()}（≤ {LUODONG_GUARANTEE.threshold} 人次，含照服員）</li>
+                                        <li>超過 {LUODONG_GUARANTEE.threshold} 人次：每人加收 ${LUODONG_GUARANTEE.extraRate}</li>
+                                        <li>無載客日不計薪</li>
+                                    </ul>
+                                </div>
+                            )}
+
                             <table className="w-full border-collapse mb-6">
                                 <thead>
                                     <tr className="bg-gray-100">
                                         <th className="border border-gray-300 px-3 py-2 text-left">日期</th>
                                         <th className="border border-gray-300 px-3 py-2 text-center">星期</th>
                                         <th className="border border-gray-300 px-3 py-2 text-center">載客人數</th>
-                                        <th className="border border-gray-300 px-3 py-2 text-right">單價</th>
+                                        <th className="border border-gray-300 px-3 py-2 text-right">
+                                            {isLuodong ? '計算方式' : '單價'}
+                                        </th>
                                         <th className="border border-gray-300 px-3 py-2 text-right">金額</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {report.days.map((day) => {
+                                    {recalcDays.map((day) => {
                                         const { display, dayOfWeek } = formatDate(day.date);
+                                        const overThreshold = isLuodong && day.pickupCount > LUODONG_GUARANTEE.threshold;
                                         return (
                                             <tr key={day.date} className="hover:bg-gray-50">
                                                 <td className="border border-gray-300 px-3 py-2">{display}</td>
                                                 <td className="border border-gray-300 px-3 py-2 text-center">{dayOfWeek}</td>
                                                 <td className="border border-gray-300 px-3 py-2 text-center font-medium">
                                                     {day.pickupCount} 人
+                                                    {overThreshold && (
+                                                        <span className="text-red-500 text-xs ml-1">
+                                                            (+{day.pickupCount - LUODONG_GUARANTEE.threshold})
+                                                        </span>
+                                                    )}
                                                 </td>
-                                                <td className="border border-gray-300 px-3 py-2 text-right">
-                                                    ${report.driverRate}
+                                                <td className="border border-gray-300 px-3 py-2 text-right text-sm">
+                                                    {isLuodong ? (
+                                                        day.pickupCount === 0 ? (
+                                                            <span className="text-gray-400">-</span>
+                                                        ) : overThreshold ? (
+                                                            <span className="text-xs">
+                                                                ${LUODONG_GUARANTEE.minDaily} + {day.pickupCount - LUODONG_GUARANTEE.threshold}×${LUODONG_GUARANTEE.extraRate}
+                                                            </span>
+                                                        ) : (
+                                                            <span>保底 ${LUODONG_GUARANTEE.minDaily}</span>
+                                                        )
+                                                    ) : (
+                                                        <span>${report.driverRate}</span>
+                                                    )}
                                                 </td>
                                                 <td className="border border-gray-300 px-3 py-2 text-right font-medium">
-                                                    ${day.amount.toLocaleString()}
+                                                    ${day.calcAmount.toLocaleString()}
                                                 </td>
                                             </tr>
                                         );
@@ -199,11 +258,15 @@ export default function DriverReportPage() {
                                             本月合計
                                         </td>
                                         <td className="border border-gray-300 px-3 py-3 text-center text-blue-600">
-                                            {report.total} 人次
+                                            {recalcTotalTrips} 人次
                                         </td>
-                                        <td className="border border-gray-300 px-3 py-3"></td>
+                                        <td className="border border-gray-300 px-3 py-3">
+                                            {isLuodong && (
+                                                <span className="text-xs text-gray-500">共 {recalcDays.filter(d => d.pickupCount > 0).length} 天出車</span>
+                                            )}
+                                        </td>
                                         <td className="border border-gray-300 px-3 py-3 text-right text-blue-600 text-lg">
-                                            ${report.totalAmount.toLocaleString()}
+                                            ${recalcTotal.toLocaleString()}
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -225,7 +288,8 @@ export default function DriverReportPage() {
                                 </div>
                             </div>
                         </>
-                    )}
+                        );
+                    })()}
                 </div>
 
                 {/* 使用說明 */}

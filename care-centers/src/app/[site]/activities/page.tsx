@@ -175,18 +175,19 @@ export default function ActivitiesPage() {
     <meta name="ProgId" content="Word.Document">
     <title>活動紀錄 - ${full.topic}</title>
     <style>
-        @page { size: A4; margin: 2cm; }
+        @page { size: A4; margin: 1.5cm 2cm; }
         * { font-family: '標楷體', DFKai-SB, BiauKai, serif !important; }
-        body { font-size: 12pt; line-height: 1.8; }
+        body { font-size: 12pt; line-height: 1.8; max-width: 100%; overflow: hidden; }
         h1 { text-align: center; font-size: 18pt; margin-bottom: 10px; }
         h2 { text-align: center; font-size: 16pt; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        td, th { border: 1px solid #000; padding: 8px; vertical-align: top; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
+        td, th { border: 1px solid #000; padding: 8px; vertical-align: top; word-wrap: break-word; overflow: hidden; }
         .label { background: #f5f5f5; width: 100px; font-weight: bold; }
         .highlight { color: red; }
         .section-title { background: #e0e0e0; font-weight: bold; text-align: center; }
         .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        .photo-grid img { width: 100%; max-height: 300px; object-fit: cover; }
+        .photo-grid img { width: 100%; max-height: 200px; object-fit: contain; }
+        img { max-width: 100% !important; }
     </style>
 </head>
 <body>
@@ -360,17 +361,28 @@ export default function ActivitiesPage() {
                 // 優先使用 API 返回的照片 URL（activity），其次使用 localStorage（full）
                 const photoList = activity.photos || full.photos || [];
                 if (photoList.length > 0) {
-                    // 使用 table 佈局（Word 相容）
+                    // 照片排版：限制在 A4 列印範圍內
+                    // A4 可用寬度約 17cm (2cm 邊距)，每張照片最大高度根據數量調整
+                    const photoCount = photoList.length;
+                    const maxImgHeight = photoCount <= 2 ? '220px' : '160px';
+                    
+                    // 使用 table 佈局（Word 相容），每行 2 張
+                    const rows: string[] = [];
+                    for (let i = 0; i < photoList.length; i += 2) {
+                        const cell1 = `<td style="width: 50%; padding: 4px; text-align: center; vertical-align: top;">
+                            <img src="${photoList[i]}" alt="活動照片${i + 1}" style="max-width: 100%; max-height: ${maxImgHeight}; object-fit: contain; border: 1px solid #ccc;">
+                        </td>`;
+                        const cell2 = i + 1 < photoList.length 
+                            ? `<td style="width: 50%; padding: 4px; text-align: center; vertical-align: top;">
+                                <img src="${photoList[i + 1]}" alt="活動照片${i + 2}" style="max-width: 100%; max-height: ${maxImgHeight}; object-fit: contain; border: 1px solid #ccc;">
+                            </td>`
+                            : '<td></td>';
+                        rows.push(`<tr>${cell1}${cell2}</tr>`);
+                    }
+                    
                     return `
-            <table style="width: 100%; margin-top: 10px;">
-                <tr>
-                ${photoList.map((p, i) => `
-                    <td style="width: 50%; padding: 5px; text-align: center; vertical-align: top;">
-                        <img src="${p}" alt="活動照片${i + 1}" style="max-width: 100%; max-height: 280px; border: 1px solid #ccc;">
-                    </td>
-                    ${i % 2 === 1 && i < photoList.length - 1 ? '</tr><tr>' : ''}
-                `).join('')}
-                </tr>
+            <table style="width: 100%; margin-top: 10px; page-break-inside: avoid;">
+                ${rows.join('')}
             </table>`;
                 } else {
                     return '<p style="text-align: center; color: #999;">（無照片）</p>';

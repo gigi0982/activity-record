@@ -1,5 +1,12 @@
 import Link from 'next/link';
 import { getSiteConfig } from '@/config/sites';
+import {
+    ClipboardList, CalendarDays, Target,
+    Users, Heart,
+    Receipt, FileSpreadsheet, Settings as SettingsIcon,
+    TrendingUp, GitCompare, BookOpen, CheckSquare,
+    PenSquare, FilePlus, ChevronRight, Truck
+} from 'lucide-react';
 
 export default async function SiteDashboard({ params }: { params: Promise<{ site: string }> }) {
     const { site: siteId } = await params;
@@ -15,192 +22,178 @@ export default async function SiteDashboard({ params }: { params: Promise<{ site
     const menuItems = [
         {
             title: '活動管理',
-            icon: '📋',
-            color: '#4F46E5',
-            bgColor: 'rgba(79, 70, 229, 0.1)',
+            icon: ClipboardList,
+            color: '#0369A1',
             items: [
-                { href: `/${siteId}/activities`, label: '活動列表', icon: '📄' },
-                { href: `/${siteId}/schedule`, label: '每週課表', icon: '📅' },
-                { href: `/${siteId}/topics`, label: '活動主題', icon: '🎯' },
+                { href: `/${siteId}/activities`, label: '活動列表', icon: ClipboardList },
+                { href: `/${siteId}/schedule`, label: '每週課表', icon: CalendarDays },
+                { href: `/${siteId}/topics`, label: '活動主題', icon: Target },
             ]
         },
         {
             title: '長者管理',
-            icon: '👴',
+            icon: Users,
             color: '#059669',
-            bgColor: 'rgba(5, 150, 105, 0.1)',
             items: [
-                { href: `/${siteId}/settings`, label: '長者名單', icon: '👥' },
-                { href: `/${siteId}/health`, label: '健康紀錄', icon: '❤️' },
+                { href: `/${siteId}/settings`, label: '長者名單', icon: Users },
+                { href: `/${siteId}/health`, label: '健康紀錄', icon: Heart },
             ]
         },
         {
             title: '費用管理',
-            icon: '💰',
+            icon: Receipt,
             color: '#D97706',
-            bgColor: 'rgba(217, 119, 6, 0.1)',
             items: [
-                { href: `/${siteId}/fees`, label: '月結報表', icon: '📊' },
-                { href: `/${siteId}/expense`, label: '支出登記', icon: '📁' },
-                { href: `/${siteId}/fee-settings`, label: '收費設定', icon: '⚙️' },
+                { href: `/${siteId}/fees`, label: '月結報表', icon: FileSpreadsheet },
+                { href: `/${siteId}/expense`, label: '支出登記', icon: Receipt },
+                { href: `/${siteId}/fee-settings`, label: '收費設定', icon: SettingsIcon },
+                { href: `/${siteId}/driver-report`, label: '司機報表', icon: Truck },
             ]
         },
         {
             title: '評鑑資料',
-            icon: '📈',
+            icon: TrendingUp,
             color: '#DC2626',
-            bgColor: 'rgba(220, 38, 38, 0.1)',
             items: [
-                { href: `/${siteId}/reports/quarterly`, label: '季度報表', icon: '📊' },
-                { href: `/${siteId}/reports/compare`, label: '季度比較', icon: '📈' },
-                { href: `/${siteId}/meetings`, label: '會議紀錄', icon: '📝' },
-                { href: `/${siteId}/tracking`, label: '執行追蹤', icon: '✓' },
+                { href: `/${siteId}/reports/quarterly`, label: '季度報表', icon: TrendingUp },
+                { href: `/${siteId}/reports/compare`, label: '季度比較', icon: GitCompare },
+                { href: `/${siteId}/meetings`, label: '會議紀錄', icon: BookOpen },
+                { href: `/${siteId}/tracking`, label: '執行追蹤', icon: CheckSquare },
             ]
         }
     ];
 
     return (
-        <div className="min-h-screen" style={{ background: '#FAF9F7' }}>
+        <div className="min-h-screen" style={{ background: 'var(--background)' }}>
             <div className="max-w-4xl mx-auto p-5 pb-24">
-                {/* 文青風歡迎卡片 */}
+                {/* 歡迎卡片 */}
                 <div
-                    className="rounded-lg p-8 mb-8 relative overflow-hidden"
+                    className="rounded-xl p-6 mb-8 relative overflow-hidden"
                     style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #E8E4DE',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        boxShadow: 'var(--shadow-md)',
                     }}
                 >
                     <div className="relative z-10">
                         <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2 text-sm" style={{ color: '#8B8B8B' }}>
-                                <span style={{ color: '#C9A86C' }}>◆</span>
-                                <span style={{ fontWeight: 500 }}>{siteConfig.name}</span>
+                            <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--muted)' }}>
+                                <div className="w-2 h-2 rounded-full" style={{ background: siteConfig.color }}></div>
+                                <span className="font-medium">{siteConfig.name}</span>
                             </div>
                             <Link
                                 href="/"
-                                className="text-sm px-3 py-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                                style={{ color: '#5D6B72' }}
+                                className="text-sm px-3 py-1.5 rounded-lg transition-colors duration-200 cursor-pointer font-medium"
+                                style={{ background: 'var(--border-light)', color: 'var(--text-secondary)' }}
                             >
-                                ⇄ 切換據點
+                                切換據點
                             </Link>
                         </div>
                         <h1
-                            className="text-3xl mb-2"
-                            style={{
-                                fontFamily: "'Noto Serif TC', serif",
-                                fontWeight: 600,
-                                color: '#3D3D3D',
-                                letterSpacing: '0.05em'
-                            }}
+                            className="text-2xl font-bold mb-1"
+                            style={{ color: 'var(--foreground)' }}
                         >
                             歡迎回來
                         </h1>
-                        <p style={{ color: '#8B8B8B', fontSize: '15px' }}>{dateStr}</p>
+                        <p className="text-sm" style={{ color: 'var(--muted)' }}>{dateStr}</p>
                     </div>
-                    {/* 裝飾線條 */}
+                    {/* 裝飾底邊 */}
                     <div
-                        className="absolute bottom-0 left-0 w-full h-1"
-                        style={{ background: 'linear-gradient(90deg, #C9A86C 0%, transparent 60%)' }}
+                        className="absolute bottom-0 left-0 w-full h-0.5"
+                        style={{ background: `linear-gradient(90deg, ${siteConfig.color} 0%, transparent 60%)` }}
                     ></div>
                 </div>
 
-                {/* 快捷按鈕 - 文青風 */}
+                {/* 快捷按鈕 */}
                 <div className="grid grid-cols-2 gap-4 mb-10">
                     <Link
                         href={`/${siteId}/quick`}
-                        className="group rounded-lg p-5 transition-all hover:shadow-lg active:scale-[0.98]"
+                        className="group rounded-xl p-5 transition-all duration-200 cursor-pointer btn-hover-darken active:scale-[0.98]"
                         style={{
-                            background: '#5D6B72',
-                            boxShadow: '0 4px 12px rgba(93,107,114,0.2)'
+                            background: 'var(--primary)',
+                            boxShadow: 'var(--shadow-md)',
                         }}
                     >
                         <div className="flex items-center justify-center gap-3 text-white">
-                            <span className="text-xl opacity-80">✎</span>
-                            <span style={{ fontWeight: 500, letterSpacing: '0.05em' }}>快速登記</span>
+                            <PenSquare className="w-5 h-5 opacity-90" />
+                            <span className="font-semibold tracking-wide">快速登記</span>
                         </div>
                     </Link>
                     <Link
                         href={`/${siteId}/activity/new`}
-                        className="group rounded-lg p-5 transition-all hover:shadow-lg active:scale-[0.98]"
+                        className="group rounded-xl p-5 transition-all duration-200 cursor-pointer btn-hover-darken active:scale-[0.98]"
                         style={{
-                            background: '#C9A86C',
-                            boxShadow: '0 4px 12px rgba(201,168,108,0.3)'
+                            background: 'var(--accent)',
+                            boxShadow: 'var(--shadow-md)',
                         }}
                     >
                         <div className="flex items-center justify-center gap-3 text-white">
-                            <span className="text-xl opacity-80">✦</span>
-                            <span style={{ fontWeight: 500, letterSpacing: '0.05em' }}>新增活動</span>
+                            <FilePlus className="w-5 h-5 opacity-90" />
+                            <span className="font-semibold tracking-wide">新增活動</span>
                         </div>
                     </Link>
                 </div>
 
-                {/* 功能選單 - 極簡風 */}
-                <div className="space-y-8">
-                    {menuItems.map((section, sectionIdx) => (
-                        <div key={section.title} className="fade-in" style={{ animationDelay: `${sectionIdx * 0.15}s` }}>
-                            <div className="flex items-center gap-3 mb-4 px-1">
+                {/* 功能選單 */}
+                <div className="space-y-6">
+                    {menuItems.map((section, sectionIdx) => {
+                        const SectionIcon = section.icon;
+                        return (
+                            <div key={section.title} className="fade-in" style={{ animationDelay: `${sectionIdx * 0.1}s` }}>
+                                <div className="flex items-center gap-2.5 mb-3 px-1">
+                                    <SectionIcon className="w-4 h-4" style={{ color: section.color }} />
+                                    <h3 className="text-sm font-bold tracking-wide" style={{ color: 'var(--foreground)' }}>
+                                        {section.title}
+                                    </h3>
+                                </div>
                                 <div
-                                    className="w-1 h-5 rounded-full"
-                                    style={{ background: '#C9A86C' }}
-                                ></div>
-                                <h3
+                                    className="rounded-xl overflow-hidden"
                                     style={{
-                                        fontFamily: "'Noto Serif TC', serif",
-                                        fontWeight: 600,
-                                        color: '#3D3D3D',
-                                        letterSpacing: '0.05em'
+                                        background: 'var(--surface)',
+                                        border: '1px solid var(--border)',
+                                        boxShadow: 'var(--shadow-sm)',
                                     }}
                                 >
-                                    {section.title}
-                                </h3>
-                            </div>
-                            <div
-                                className="rounded-lg p-4"
-                                style={{
-                                    background: '#FFFFFF',
-                                    border: '1px solid #E8E4DE',
-                                    boxShadow: '0 2px 12px rgba(0,0,0,0.03)'
-                                }}
-                            >
-                                <div className={`grid gap-3 ${section.items.length === 1 ? 'grid-cols-1' :
-                                    section.items.length === 2 ? 'grid-cols-2' :
-                                        'grid-cols-3'
-                                    }`}>
-                                    {section.items.map((item) => (
-                                        <Link
-                                            key={item.href}
-                                            href={item.href}
-                                            className="flex flex-col items-center justify-center p-5 rounded-md transition-all group active:scale-95 hover:bg-gray-50"
-                                        >
-                                            <span
-                                                className="text-2xl mb-3 transition-transform group-hover:scale-110"
-                                                style={{ opacity: 0.85 }}
+                                    {section.items.map((item, itemIdx) => {
+                                        const ItemIcon = item.icon;
+                                        return (
+                                            <Link
+                                                key={item.href}
+                                                href={item.href}
+                                                className="flex items-center justify-between px-4 py-3.5 transition-colors duration-150 cursor-pointer group hover:bg-sky-50"
+                                                style={{
+                                                    borderBottom: itemIdx < section.items.length - 1 ? '1px solid var(--border-light)' : 'none',
+                                                }}
                                             >
-                                                {item.icon}
-                                            </span>
-                                            <span
-                                                className="text-sm font-medium transition-colors"
-                                                style={{ color: '#5D6B72' }}
-                                            >
-                                                {item.label}
-                                            </span>
-                                        </Link>
-                                    ))}
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="w-9 h-9 rounded-lg flex items-center justify-center"
+                                                        style={{ background: `${section.color}12` }}
+                                                    >
+                                                        <ItemIcon className="w-4.5 h-4.5" style={{ color: section.color }} />
+                                                    </div>
+                                                    <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                                                        {item.label}
+                                                    </span>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" style={{ color: 'var(--muted)' }} />
+                                            </Link>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
-                {/* 底部 - 極簡 */}
-                <div className="text-center mt-12" style={{ color: '#C9A86C' }}>
+                {/* 底部 */}
+                <div className="text-center mt-12">
                     <div className="flex items-center justify-center gap-3 mb-2">
-                        <div className="w-8 h-px" style={{ background: '#E8E4DE' }}></div>
-                        <span style={{ fontSize: '12px', letterSpacing: '0.1em' }}>◆</span>
-                        <div className="w-8 h-px" style={{ background: '#E8E4DE' }}></div>
+                        <div className="w-8 h-px" style={{ background: 'var(--border)' }}></div>
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--primary-light)' }}></div>
+                        <div className="w-8 h-px" style={{ background: 'var(--border)' }}></div>
                     </div>
-                    <p style={{ fontSize: '13px', color: '#8B8B8B', letterSpacing: '0.03em' }}>
+                    <p className="text-xs" style={{ color: 'var(--muted)' }}>
                         © 2026 {siteConfig.name}
                     </p>
                 </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { elderApi, healthApi, Elder } from '@/lib/api';
+import { Heart, Save, ArrowLeft, Activity, AlertTriangle, TrendingUp, TrendingDown, Minus, Loader2, ClipboardList } from 'lucide-react';
 
 interface HealthRecord {
     date: string;
@@ -140,21 +141,25 @@ export default function HealthPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh]">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-                <p className="mt-4 text-gray-500">載入中...</p>
+                <Loader2 className="w-10 h-10 animate-spin" style={{ color: 'var(--primary)' }} />
+                <p className="mt-4 text-sm" style={{ color: 'var(--muted)' }}>載入中...</p>
             </div>
         );
     }
 
     return (
         <div className="max-w-4xl mx-auto p-4 pb-24">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">❤️ 健康紀錄</h1>
+            <div className="flex items-center gap-2.5 mb-6">
+                <Heart className="w-6 h-6" style={{ color: 'var(--danger)' }} />
+                <h1 className="text-xl font-bold" style={{ color: 'var(--foreground)' }}>健康紀錄</h1>
+            </div>
 
             {/* 長者選擇 */}
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-                <label className="block text-sm font-medium text-gray-600 mb-2">選擇長者</label>
+            <div className="rounded-xl p-4 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>選擇長者</label>
                 <select
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-colors duration-150"
+                    style={{ border: '1.5px solid var(--border)', background: 'var(--surface)', color: 'var(--foreground)', minHeight: '44px' }}
                     value={selectedElder}
                     onChange={(e) => setSelectedElder(e.target.value)}
                 >
@@ -165,77 +170,86 @@ export default function HealthPage() {
             </div>
 
             {/* 新增紀錄 */}
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-                <h2 className="font-semibold text-gray-800 mb-4">📅 {todayStr} 紀錄</h2>
+            <div className="rounded-xl p-4 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                <div className="flex items-center gap-2 mb-4">
+                    <Activity className="w-4 h-4" style={{ color: 'var(--primary)' }} />
+                    <h2 className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>{todayStr} 紀錄</h2>
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-sm text-gray-600 mb-1">收縮壓</label>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>收縮壓</label>
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 rounded-lg text-sm"
+                                style={{ border: '1.5px solid var(--border)', minHeight: '44px' }}
                                 value={newRecord.systolic}
                                 onChange={(e) => setNewRecord({ ...newRecord, systolic: Number(e.target.value) })}
                             />
-                            <span className="text-gray-500">mmHg</span>
+                            <span className="text-xs whitespace-nowrap" style={{ color: 'var(--muted)' }}>mmHg</span>
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-600 mb-1">舒張壓</label>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>舒張壓</label>
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 rounded-lg text-sm"
+                                style={{ border: '1.5px solid var(--border)', minHeight: '44px' }}
                                 value={newRecord.diastolic}
                                 onChange={(e) => setNewRecord({ ...newRecord, diastolic: Number(e.target.value) })}
                             />
-                            <span className="text-gray-500">mmHg</span>
+                            <span className="text-xs whitespace-nowrap" style={{ color: 'var(--muted)' }}>mmHg</span>
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-600 mb-1">脈搏</label>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>脈搏</label>
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 rounded-lg text-sm"
+                                style={{ border: '1.5px solid var(--border)', minHeight: '44px' }}
                                 value={newRecord.pulse}
                                 onChange={(e) => setNewRecord({ ...newRecord, pulse: Number(e.target.value) })}
                             />
-                            <span className="text-gray-500">次/分</span>
+                            <span className="text-xs whitespace-nowrap" style={{ color: 'var(--muted)' }}>次/分</span>
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-600 mb-1">體溫</label>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>體溫</label>
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
                                 step="0.1"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 rounded-lg text-sm"
+                                style={{ border: '1.5px solid var(--border)', minHeight: '44px' }}
                                 value={newRecord.temperature}
                                 onChange={(e) => setNewRecord({ ...newRecord, temperature: Number(e.target.value) })}
                             />
-                            <span className="text-gray-500">°C</span>
+                            <span className="text-xs whitespace-nowrap" style={{ color: 'var(--muted)' }}>°C</span>
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-600 mb-1">體重</label>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>體重</label>
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
                                 step="0.1"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                className="w-full px-3 py-2 rounded-lg text-sm"
+                                style={{ border: '1.5px solid var(--border)', minHeight: '44px' }}
                                 value={newRecord.weight}
                                 onChange={(e) => setNewRecord({ ...newRecord, weight: Number(e.target.value) })}
                             />
-                            <span className="text-gray-500">kg</span>
+                            <span className="text-xs whitespace-nowrap" style={{ color: 'var(--muted)' }}>kg</span>
                         </div>
                     </div>
                 </div>
                 <div className="mt-4">
-                    <label className="block text-sm text-gray-600 mb-1">備註</label>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>備註</label>
                     <input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        className="w-full px-3 py-2.5 rounded-lg text-sm"
+                        style={{ border: '1.5px solid var(--border)', minHeight: '44px' }}
                         placeholder="特殊狀況記錄..."
                         value={newRecord.notes}
                         onChange={(e) => setNewRecord({ ...newRecord, notes: e.target.value })}
@@ -244,43 +258,153 @@ export default function HealthPage() {
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="mt-4 w-full py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 disabled:opacity-50"
+                    className="mt-4 w-full py-3 text-white rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ background: 'var(--primary)', minHeight: '48px' }}
                 >
-                    {isSaving ? '儲存中...' : '💾 儲存今日紀錄'}
+                    {isSaving ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> 儲存中...</>
+                    ) : (
+                        <><Save className="w-4 h-4" /> 儲存今日紀錄</>
+                    )}
                 </button>
             </div>
 
+            {/* 血壓統計與提醒 */}
+            {records.length >= 3 && (() => {
+                const systolicValues = records.map(r => r.bloodPressure.systolic).filter(v => v > 0);
+                const diastolicValues = records.map(r => r.bloodPressure.diastolic).filter(v => v > 0);
+
+                const avg = (arr: number[]) => arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+                const median = (arr: number[]) => {
+                    if (arr.length === 0) return 0;
+                    const sorted = [...arr].sort((a, b) => a - b);
+                    const mid = Math.floor(sorted.length / 2);
+                    return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+                };
+
+                const avgSys = avg(systolicValues);
+                const avgDia = avg(diastolicValues);
+                const medSys = median(systolicValues);
+                const medDia = median(diastolicValues);
+
+                const getBPLevel = (sys: number, dia: number) => {
+                    if (sys >= 180 || dia >= 120) return { level: '高血壓危象', color: '#DC2626', bgColor: '#FEE2E2' };
+                    if (sys >= 160 || dia >= 100) return { level: '第二期高血壓', color: '#EF4444', bgColor: '#FEE2E2' };
+                    if (sys >= 140 || dia >= 90) return { level: '第一期高血壓', color: '#F97316', bgColor: '#FFF7ED' };
+                    if (sys >= 130 || dia >= 85) return { level: '高血壓前期', color: '#D97706', bgColor: '#FEF3C7' };
+                    if (sys >= 120) return { level: '血壓偏高', color: '#EAB308', bgColor: '#FEF9C3' };
+                    if (sys < 90 || dia < 60) return { level: '低血壓', color: '#3B82F6', bgColor: '#DBEAFE' };
+                    return { level: '正常', color: '#22C55E', bgColor: '#DCFCE7' };
+                };
+
+                const avgLevel = getBPLevel(avgSys, avgDia);
+                const isAbnormal = avgLevel.level !== '正常' && avgLevel.level !== '血壓偏高';
+
+                const recent3 = systolicValues.slice(0, 3);
+                const older3 = systolicValues.slice(3, 6);
+                let trendIcon = null;
+                let trendText = '';
+                if (recent3.length >= 3 && older3.length >= 3) {
+                    const recentAvg = avg(recent3);
+                    const olderAvg = avg(older3);
+                    if (recentAvg > olderAvg + 10) { trendIcon = <TrendingUp className="w-4 h-4 inline mr-1" style={{ color: '#EF4444' }} />; trendText = '近期血壓有上升趨勢'; }
+                    else if (recentAvg < olderAvg - 10) { trendIcon = <TrendingDown className="w-4 h-4 inline mr-1" style={{ color: '#22C55E' }} />; trendText = '近期血壓有下降趨勢'; }
+                    else { trendIcon = <Minus className="w-4 h-4 inline mr-1" style={{ color: 'var(--muted)' }} />; trendText = '近期血壓趨勢平穩'; }
+                }
+
+                return (
+                    <div className="rounded-xl p-4 mb-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                        <div className="flex items-center gap-2 mb-3">
+                            <Activity className="w-4 h-4" style={{ color: 'var(--primary)' }} />
+                            <h2 className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>血壓統計分析（近 {records.length} 筆）</h2>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div className="rounded-lg p-3 text-center" style={{ background: 'var(--primary-50)' }}>
+                                <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>平均血壓</div>
+                                <div className="text-xl font-bold" style={{ color: 'var(--foreground)' }}>{avgSys}/{avgDia}</div>
+                            </div>
+                            <div className="rounded-lg p-3 text-center" style={{ background: 'var(--primary-50)' }}>
+                                <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>中位數血壓</div>
+                                <div className="text-xl font-bold" style={{ color: 'var(--foreground)' }}>{medSys}/{medDia}</div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>評估分級：</span>
+                            <span
+                                className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                                style={{ background: avgLevel.bgColor, color: avgLevel.color }}
+                            >
+                                {avgLevel.level}
+                            </span>
+                        </div>
+
+                        {isAbnormal && (
+                            <div className="mt-2 p-3 rounded-lg flex items-start gap-2" style={{ background: '#FEE2E2', border: '1px solid #FECACA' }}>
+                                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#DC2626' }} />
+                                <p className="text-sm font-medium" style={{ color: '#991B1B' }}>
+                                    {selectedElder} 近期血壓平均值偏高（{avgSys}/{avgDia}），建議諮詢醫師
+                                </p>
+                            </div>
+                        )}
+
+                        {trendText && (
+                            <div className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                {trendIcon}{trendText}
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
+
             {/* 歷史紀錄 */}
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-20">
-                <div className="px-4 py-3 border-b bg-gray-50">
-                    <h2 className="font-semibold text-gray-800">📋 {selectedElder} 的歷史紀錄</h2>
+            <div className="rounded-xl overflow-hidden mb-20" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)', background: 'var(--primary-50)' }}>
+                    <ClipboardList className="w-4 h-4" style={{ color: 'var(--primary)' }} />
+                    <h2 className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>{selectedElder} 的歷史紀錄</h2>
                 </div>
                 {records.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400">尚無紀錄</div>
+                    <div className="p-8 text-center text-sm" style={{ color: 'var(--muted)' }}>尚無紀錄</div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-gray-50 text-gray-600">
-                                    <th className="px-4 py-2 text-left">日期</th>
-                                    <th className="px-4 py-2 text-center">血壓</th>
-                                    <th className="px-4 py-2 text-center">脈搏</th>
-                                    <th className="px-4 py-2 text-center">體溫</th>
-                                    <th className="px-4 py-2 text-center">體重</th>
+                                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <th className="px-4 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>日期</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>血壓</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>脈搏</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>體溫</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>體重</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y">
-                                {records.slice(0, 10).map((record, i) => (
-                                    <tr key={i} className="hover:bg-gray-50">
-                                        <td className="px-4 py-2 font-medium">{record.date}</td>
-                                        <td className="px-4 py-2 text-center">
-                                            {record.bloodPressure.systolic}/{record.bloodPressure.diastolic}
-                                        </td>
-                                        <td className="px-4 py-2 text-center">{record.pulse}</td>
-                                        <td className="px-4 py-2 text-center">{record.temperature}°C</td>
-                                        <td className="px-4 py-2 text-center">{record.weight}kg</td>
-                                    </tr>
-                                ))}
+                            <tbody>
+                                {records.slice(0, 10).map((record, i) => {
+                                    const sys = record.bloodPressure.systolic;
+                                    const dia = record.bloodPressure.diastolic;
+                                    const isHigh = sys >= 140 || dia >= 90;
+                                    const isPreHigh = sys >= 130 || dia >= 85;
+                                    const isLow = sys < 90 || dia < 60;
+                                    const bpStyle = isHigh
+                                        ? { color: '#DC2626', fontWeight: 700 }
+                                        : isPreHigh
+                                            ? { color: '#D97706', fontWeight: 600 }
+                                            : isLow
+                                                ? { color: '#3B82F6', fontWeight: 600 }
+                                                : { color: 'var(--foreground)' };
+                                    return (
+                                        <tr key={i} className="transition-colors duration-150" style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                            <td className="px-4 py-2.5 font-medium text-sm" style={{ color: 'var(--foreground)' }}>{record.date}</td>
+                                            <td className="px-4 py-2.5 text-center text-sm flex items-center justify-center gap-1" style={bpStyle}>
+                                                {sys}/{dia}
+                                                {isHigh && <AlertTriangle className="w-3.5 h-3.5" />}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center text-sm" style={{ color: 'var(--foreground)' }}>{record.pulse}</td>
+                                            <td className="px-4 py-2.5 text-center text-sm" style={{ color: 'var(--foreground)' }}>{record.temperature}°C</td>
+                                            <td className="px-4 py-2.5 text-center text-sm" style={{ color: 'var(--foreground)' }}>{record.weight}kg</td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -288,12 +412,14 @@ export default function HealthPage() {
             </div>
 
             {/* 底部按鈕 */}
-            <div className="fixed bottom-16 left-0 right-0 p-3 bg-white shadow-lg z-40">
+            <div className="fixed bottom-16 left-0 right-0 p-3 z-40" style={{ background: 'var(--surface)', boxShadow: '0 -2px 8px rgba(0,0,0,0.06)' }}>
                 <Link
                     href={`/${siteId}`}
-                    className="block w-full py-4 bg-gray-400 text-white text-center rounded-xl font-bold hover:bg-gray-500 transition"
+                    className="flex items-center justify-center gap-2 w-full py-3.5 text-white text-center rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer"
+                    style={{ background: 'var(--text-secondary)' }}
                 >
-                    ← 返回儀表板
+                    <ArrowLeft className="w-4 h-4" />
+                    返回儀表板
                 </Link>
             </div>
         </div>

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { elderApi, expenseApi } from '@/lib/api';
+import { expenseApi, quickEntryApi, QuickEntryRecord } from '@/lib/api';
+import { checkDateLock, isAdminOverride } from '@/lib/dataLock';
 
 interface ElderFee {
     name: string;
@@ -50,6 +51,10 @@ export default function ExpenseEntryPage() {
 
     // 長者收費明細
     const [elderFees, setElderFees] = useState<ElderFee[]>([]);
+
+    // 用餐核對（從快速登記取得）
+    const [mealElderNames, setMealElderNames] = useState<string[]>([]);
+    const [mealElderCount, setMealElderCount] = useState(0);
 
     useEffect(() => {
         loadData(selectedDate);
@@ -118,6 +123,18 @@ export default function ExpenseEntryPage() {
                     }
                 }
             }
+
+            // 載入快速登記資料，取得當日用餐人數
+            try {
+                const quickData = await quickEntryApi.getQuickEntry(siteId, dateStr);
+                if (quickData && Array.isArray(quickData)) {
+                    const mealNames = quickData.filter((r: QuickEntryRecord) => r.meal).map((r: QuickEntryRecord) => r.elderName);
+                    setMealElderNames(mealNames);
+                    setMealElderCount(mealNames.length);
+                }
+            } catch (qErr) {
+                console.error('載入快速登記用餐資料失敗:', qErr);
+            }
         } catch (err) {
             console.error('載入失敗:', err);
         } finally {
@@ -143,6 +160,26 @@ export default function ExpenseEntryPage() {
     };
 
     const handleSave = async () => {
+        // 資料鎖定檢查
+        const lockStatus = checkDateLock(selectedDate);
+        if (lockStatus.isLocked && !isAdminOverride()) {
+            alert(`🔒 ${lockStatus.message}\n\n如需修改，請聯繫管理員。`);
+            return;
+        }
+
+        // 便當數量核對
+        const totalLunch = storeA.count + storeB.count;
+        if (mealElderCount > 0 && totalLunch !== mealElderCount) {
+            const proceed = window.confirm(
+                `⚠️ 便當核對不一致！\n\n` +
+                `便當訂購：${totalLunch} 個（A店 ${storeA.count} + B店 ${storeB.count}）\n` +
+                `快速登記用餐人數：${mealElderCount} 人\n` +
+                `差異：${Math.abs(totalLunch - mealElderCount)} 個\n\n` +
+                `是否仍要儲存？`
+            );
+            if (!proceed) return;
+        }
+
         setIsSaving(true);
         const expenseData = {
             date: selectedDate,
@@ -166,6 +203,9 @@ export default function ExpenseEntryPage() {
         setIsSaving(false);
         setTimeout(() => setShowSuccess(false), 3000);
     };
+
+    // 資料鎖定狀態
+    const dateLock = checkDateLock(selectedDate);
 
     const tabs = [
         { id: 'lunch' as TabType, label: '便當', icon: '🍱', amount: lunchTotal },
@@ -219,6 +259,17 @@ export default function ExpenseEntryPage() {
                     </div>
                 </div>
             </div>
+
+            {/* 資料鎖定提示 */}
+            {dateLock.isLocked && (
+                <div className="mx-4 mt-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                    <span className="text-lg">🔒</span>
+                    <div>
+                        <p className="text-red-800 font-medium text-sm">{dateLock.message}</p>
+                        <p className="text-red-600 text-xs">如需修改，請聯繫管理員</p>
+                    </div>
+                </div>
+            )}
 
             {/* 分頁標籤 */}
             <div className="flex overflow-x-auto gap-2 p-4 bg-gray-50 -mx-4">
@@ -298,6 +349,41 @@ export default function ExpenseEntryPage() {
                                 {storeA.count + storeB.count} 個 = ${lunchTotal}
                             </span>
                         </div>
+
+                        {/* 用餐核對提醒 */}
+                        {mealElderCount > 0 && (
+                            <div className={`mt-4 p-4 rounded-xl ${
+                                storeA.count + storeB.count === mealElderCount
+                                    ? 'bg-green-50 border border-green-200'
+                                    : 'bg-red-50 border border-red-200'
+                            }`}>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-lg">
+                                        {storeA.count + storeB.count === mealElderCount ? '✅' : '⚠️'}
+                                    </span>
+                                    <div className="flex-1">
+                                        <p className={`font-medium ${
+                                            storeA.count + storeB.count === mealElderCount
+                                                ? 'text-green-800'
+                                                : 'text-red-800'
+                                        }`}>
+                                            {storeA.count + storeB.count === mealElderCount
+                                                ? '便當數量與用餐人數一致 ✓'
+                                                : `便當數量（${storeA.count + storeB.count}）≠ 用餐人數（${mealElderCount}），差 ${Math.abs(storeA.count + storeB.count - mealElderCount)} 個`
+                                            }
+                                        </p>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            📋 快速登記用餐人數：{mealElderCount} 人（{mealElderNames.join('、')}）
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {mealElderCount === 0 && (
+                            <div className="mt-4 p-3 bg-gray-50 rounded-xl text-sm text-gray-500">
+                                💡 尚未載入當日快速登記用餐資料，無法核對
+                            </div>
+                        )}
                     </div>
                 )}
 

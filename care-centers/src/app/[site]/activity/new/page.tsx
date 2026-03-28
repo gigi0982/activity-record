@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { elderApi, activityApi, quickEntryApi, Elder, QuickEntryRecord } from '@/lib/api';
+import { checkDateLock, isAdminOverride } from '@/lib/dataLock';
 
 interface ParticipantRating {
     name: string;
@@ -513,6 +514,13 @@ export default function NewActivityPage() {
         }
         if (participants.length === 0) {
             alert('請選擇至少一位參與者');
+            return;
+        }
+
+        // 資料鎖定檢查
+        const lockStatus = checkDateLock(formData.date);
+        if (lockStatus.isLocked && !isAdminOverride()) {
+            alert(`🔒 ${lockStatus.message}\n\n如需修改，請聯繫管理員。`);
             return;
         }
 

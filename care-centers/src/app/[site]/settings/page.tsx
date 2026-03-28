@@ -28,6 +28,8 @@ export default function SettingsPage() {
     const [editingElder, setEditingElder] = useState<EditingElder | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
+    const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
+    const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
     useEffect(() => {
         loadElders();
@@ -92,6 +94,55 @@ export default function SettingsPage() {
             console.error('刪除失敗:', err);
             alert('刪除請求失敗，請稍後再試');
         }
+    };
+
+    // 批量刪除
+    const toggleSelectForDelete = (name: string) => {
+        setSelectedForDelete(prev => {
+            const next = new Set(prev);
+            if (next.has(name)) {
+                next.delete(name);
+            } else {
+                next.add(name);
+            }
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedForDelete.size === elders.length) {
+            setSelectedForDelete(new Set());
+        } else {
+            setSelectedForDelete(new Set(elders.map(e => e.name)));
+        }
+    };
+
+    const handleBatchDelete = async () => {
+        if (selectedForDelete.size === 0) return;
+        const names = Array.from(selectedForDelete);
+        if (!window.confirm(`確定要刪除以下 ${names.length} 位長者嗎？\n\n${names.join('、')}\n\n⚠️ 此操作無法復原！`)) return;
+
+        setIsBatchDeleting(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const name of names) {
+            try {
+                const result = await elderApi.deleteElder(name);
+                if (result.success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch {
+                failCount++;
+            }
+        }
+
+        setSelectedForDelete(new Set());
+        setIsBatchDeleting(false);
+        alert(`批量刪除完成！\n✅ 成功：${successCount} 位\n${failCount > 0 ? `❌ 失敗：${failCount} 位` : ''}`);
+        loadElders();
     };
 
     const handleEditElder = (elder: Elder) => {
@@ -264,7 +315,18 @@ export default function SettingsPage() {
             {/* 長者名單 */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b flex justify-between items-center">
-                    <h2 className="font-semibold text-gray-800">📋 長者名單</h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="font-semibold text-gray-800">📋 長者名單</h2>
+                        {selectedForDelete.size > 0 && (
+                            <button
+                                className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 disabled:opacity-50 flex items-center gap-1"
+                                onClick={handleBatchDelete}
+                                disabled={isBatchDeleting}
+                            >
+                                🗑️ {isBatchDeleting ? '刪除中...' : `批量刪除 (${selectedForDelete.size})`}
+                            </button>
+                        )}
+                    </div>
                     <button
                         className="text-blue-500 hover:text-blue-700 text-sm font-medium"
                         onClick={loadElders}
@@ -285,6 +347,14 @@ export default function SettingsPage() {
                             <table className="w-full">
                                 <thead>
                                     <tr className="bg-gray-50 text-left text-sm text-gray-600">
+                                        <th className="px-2 py-3 font-medium w-10">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400 cursor-pointer"
+                                                checked={selectedForDelete.size === elders.length && elders.length > 0}
+                                                onChange={toggleSelectAll}
+                                            />
+                                        </th>
                                         <th className="px-4 py-3 font-medium">姓名</th>
                                         <th className="px-4 py-3 font-medium">分級</th>
                                         <th className="px-4 py-3 font-medium">身份類別</th>
@@ -301,7 +371,15 @@ export default function SettingsPage() {
                                         const info = getLevelInfo(elder.level);
                                         const identityInfo = getIdentityInfo(elder.identityType);
                                         return (
-                                            <tr key={i} className="hover:bg-gray-50">
+                                            <tr key={i} className={`hover:bg-gray-50 ${selectedForDelete.has(elder.name) ? 'bg-red-50' : ''}`}>
+                                                <td className="px-2 py-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400 cursor-pointer"
+                                                        checked={selectedForDelete.has(elder.name)}
+                                                        onChange={() => toggleSelectForDelete(elder.name)}
+                                                    />
+                                                </td>
                                                 <td className="px-4 py-3 font-medium">{elder.name}</td>
                                                 <td className="px-4 py-3">
                                                     <span

@@ -118,6 +118,11 @@ function doPost(e) {
         result = uploadPhotosToDrive(data.photos, data.activityId);
         break;
       
+      // ========== 健康紀錄 ==========
+      case 'saveHealthRecords':
+        result = saveHealthRecords(data);
+        break;
+      
       default:
         result = addActivity(data);
     }
@@ -147,15 +152,37 @@ function handleLineWebhook(data) {
           // 檢查是否為已註冊的司機
           const driver = findDriverByUserId(userId);
           
+          // 檢查是否為家屬（根據長者名單的家屬LINE欄位）
+          const familyElder = findElderByFamilyLineId(userId);
+          
           if (driver) {
             // 已註冊的司機
             if (messageText.includes('名單') || messageText.includes('詳細')) {
-              // 發送詳細名單
               const detailedReport = generateDetailedDriverReport(driver.name, driver.siteId);
               sendLineMessage(userId, detailedReport);
+            } else if (messageText.includes('薪資') || messageText.includes('對帳')) {
+              // 查詢近兩週薪資
+              var today = new Date();
+              var twoWeeksAgo = new Date(today);
+              twoWeeksAgo.setDate(today.getDate() - 14);
+              var report = generateBiweeklyDriverReport(driver.name, driver.siteId, formatDateYMD(twoWeeksAgo), formatDateYMD(today));
+              sendLineMessage(userId, report);
             } else {
-              // 一般訊息回覆
-              sendLineMessage(userId, `${driver.name} 司機您好！\n\n如需查看本週詳細載送名單，請回覆「名單」`);
+              sendLineMessage(userId, `${driver.name} 司機您好！\n\n可用指令：\n📋 回覆「名單」→ 本週載送名單\n💰 回覆「薪資」→ 近兩週薪資明細`);
+            }
+          } else if (familyElder) {
+            // 家屬查詢血壓（使用血壓家屬 Bot 回覆）
+            if (messageText.includes('血壓') || messageText.includes('健康') || messageText.includes('查詢')) {
+              var elderRecords = getHealthByElder(familyElder.name);
+              var recentRecords = elderRecords.slice(0, 14); // 最近 14 筆
+              if (recentRecords.length > 0) {
+                var bpReport = generateBiweeklyBPReport(familyElder.name, recentRecords);
+                sendLineBPMessage(userId, bpReport || '目前尚無血壓紀錄');
+              } else {
+                sendLineBPMessage(userId, '❤️ ' + familyElder.name + '\n\n目前尚無血壓紀錄，紀錄後將定期推送報告給您。');
+              }
+            } else {
+              sendLineBPMessage(userId, `您好！您是 ${familyElder.name} 的家屬。\n\n📋 回覆「血壓」→ 查看近期血壓報告\n\n系統會每 2 週自動推送血壓報告給您 ❤️`);
             }
           } else {
             // 新用戶，記錄 User ID
@@ -169,7 +196,7 @@ function handleLineWebhook(data) {
             
             sheet.appendRow([new Date(), userId, messageText, '否']);
             
-            sendLineMessage(userId, `您好！您的 User ID 已記錄：\n${userId}\n\n請告知管理員將此 ID 加入司機設定。`);
+            sendLineMessage(userId, `您好！您的 User ID 已記錄：\n${userId}\n\n請告知據點管理員將此 ID 加入設定。\n\n📌 司機請加入「司機設定」\n📌 家屬請加入長者資料的「家屬LINE」欄位`);
           }
         }
       });
@@ -180,9 +207,30 @@ function handleLineWebhook(data) {
     
   } catch (error) {
     console.log('LINE Webhook 處理錯誤:', error.message);
-    // 即使出錯也要返回 200，否則 LINE 會重試
     return ContentService.createTextOutput('OK').setMimeType(ContentService.MimeType.TEXT);
   }
+}
+
+/**
+ * 根據家屬 LINE User ID 查找長者
+ */
+function findElderByFamilyLineId(userId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('長者名單');
+  if (!sheet) return null;
+
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var familyLineId = String(data[i][9] || '').trim();
+    if (familyLineId === userId) {
+      return {
+        name: data[i][0],
+        level: data[i][1],
+        familyLineId: familyLineId
+      };
+    }
+  }
+  return null;
 }
 
 /**
@@ -367,6 +415,16 @@ function doGet(e) {
         const verifySiteId = e.parameter.siteId || '';
         const verifyPassword = e.parameter.password || '';
         return ContentService.createTextOutput(JSON.stringify(verifySitePassword(verifySiteId, verifyPassword)))
+          .setMimeType(ContentService.MimeType.JSON);
+      
+      // ========== 健康紀錄 ==========
+      case 'getHealthByElder':
+        const healthElderName = e.parameter.elderName || '';
+        return ContentService.createTextOutput(JSON.stringify(getHealthByElder(healthElderName)))
+          .setMimeType(ContentService.MimeType.JSON);
+      
+      case 'getAllHealth':
+        return ContentService.createTextOutput(JSON.stringify(getAllHealth()))
           .setMimeType(ContentService.MimeType.JSON);
       
       default:
@@ -1583,15 +1641,34 @@ function getElderMonthlyUsage(siteId, month) {
 // LINE Messaging API 推播功能
 // ===================================================
 
-// LINE Messaging API 設定
+// LINE Bot 1：司機通知 (@079rshsc)
 const LINE_CHANNEL_ACCESS_TOKEN = 'OLWZxDDoQQ3zdYipaw1v7sgBEyGohSe6U6cnC2thngmUnkWZBK2SyZjMMJGrn+cJnLcB66fQgcLY/5jy2Wlns+l+ghFRcX9rB2eXwSfX7O9vL21lTXKJEAoI+oGI90v28rLfrpc4cuDJNzKC5s2VzAdB04t89/1O/w1cDnyilFU=';
+const LINE_DRIVER_ADMIN_USER_ID = 'Udd3152e0622b3cf91e6da5913d1a3e88';
+
+// LINE Bot 2：血壓家屬通知 (@618gzkhw)
+const LINE_BP_CHANNEL_ACCESS_TOKEN = 'Nxi+xNfc21bVfY8pLIeSIx9TfQ/Eib09fykEpKPTecjASgH6/qQkoHfKw2Yv8zF3zO74dZ6tvi2/JYGZhq4wMdZ50QS93GSUpB0/EwATmvKjQZASo79xX4pFZHd4V6Mh6oGV3M68NOwAHTX1BLd2GwdB04t89/1O/w1cDnyilFU=';
+const LINE_BP_ADMIN_USER_ID = 'Uc696af3dd52c1d90c4464267fcc521cf';
 
 /**
- * 發送 LINE 推播訊息
+ * 發送 LINE 推播訊息（使用司機 Bot）
  * @param {string} userId - LINE User ID
  * @param {string} message - 訊息內容
  */
 function sendLineMessage(userId, message) {
+  return sendLineMessageWithToken(userId, message, LINE_CHANNEL_ACCESS_TOKEN);
+}
+
+/**
+ * 發送 LINE 推播訊息（使用血壓家屬 Bot）
+ */
+function sendLineBPMessage(userId, message) {
+  return sendLineMessageWithToken(userId, message, LINE_BP_CHANNEL_ACCESS_TOKEN);
+}
+
+/**
+ * 發送 LINE 推播訊息（指定 token）
+ */
+function sendLineMessageWithToken(userId, message, token) {
   const url = 'https://api.line.me/v2/bot/message/push';
   
   const payload = {
@@ -1608,7 +1685,7 @@ function sendLineMessage(userId, message) {
     method: 'post',
     contentType: 'application/json',
     headers: {
-      'Authorization': 'Bearer ' + LINE_CHANNEL_ACCESS_TOKEN
+      'Authorization': 'Bearer ' + token
     },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
@@ -1885,6 +1962,628 @@ function testSendLineMessage() {
  */
 function manualSendWeeklyReports() {
   return sendWeeklyDriverReports();
+}
+
+// ===================================================
+// 健康紀錄管理
+// ===================================================
+
+/**
+ * 儲存健康紀錄
+ */
+function saveHealthRecords(data) {
+  const records = data.records || [];
+  if (records.length === 0) return { success: false, message: '無資料' };
+
+  const siteId = data.siteId || '';
+  const ss = siteId ? getSpreadsheetBySiteId(siteId) : SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('健康紀錄');
+
+  if (!sheet) {
+    sheet = ss.insertSheet('健康紀錄');
+    sheet.appendRow(['長者姓名', '日期', '血壓', '心率', '體重', '備註', '建立時間']);
+  }
+
+  records.forEach(function(r) {
+    // 檢查是否已有同一天同一人的紀錄（更新而非新增）
+    var allData = sheet.getDataRange().getValues();
+    var found = false;
+    for (var i = 1; i < allData.length; i++) {
+      if (allData[i][0] === r.elderName && allData[i][1] === r.date) {
+        sheet.getRange(i + 1, 3).setValue(r.bloodPressure || '');
+        sheet.getRange(i + 1, 4).setValue(r.heartRate || '');
+        sheet.getRange(i + 1, 5).setValue(r.weight || '');
+        sheet.getRange(i + 1, 6).setValue(r.note || '');
+        sheet.getRange(i + 1, 7).setValue(new Date().toISOString());
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      sheet.appendRow([
+        r.elderName || '',
+        r.date || '',
+        r.bloodPressure || '',
+        r.heartRate || '',
+        r.weight || '',
+        r.note || '',
+        new Date().toISOString()
+      ]);
+    }
+  });
+
+  return { success: true, message: '健康紀錄已儲存' };
+}
+
+/**
+ * 取得指定長者的健康紀錄
+ */
+function getHealthByElder(elderName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('健康紀錄');
+  if (!sheet) return [];
+
+  const data = sheet.getDataRange().getValues();
+  var results = [];
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === elderName) {
+      results.push({
+        elderName: data[i][0],
+        date: data[i][1],
+        bloodPressure: data[i][2],
+        heartRate: data[i][3],
+        weight: data[i][4],
+        note: data[i][5]
+      });
+    }
+  }
+  // 按日期倒序
+  results.sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
+  return results;
+}
+
+/**
+ * 取得所有健康紀錄
+ */
+function getAllHealth() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('健康紀錄');
+  if (!sheet) return [];
+
+  const data = sheet.getDataRange().getValues();
+  var results = [];
+  for (var i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    results.push({
+      elderName: data[i][0],
+      date: data[i][1],
+      bloodPressure: data[i][2],
+      heartRate: data[i][3],
+      weight: data[i][4],
+      note: data[i][5]
+    });
+  }
+  results.sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
+  return results;
+}
+
+// ===================================================
+// 每 2 週駕駛薪資明細 LINE 推送
+// ===================================================
+
+// 羅東保底規則常數
+var LUODONG_GUARANTEE_MIN_DAILY = 1800;
+var LUODONG_GUARANTEE_THRESHOLD = 20;
+var LUODONG_GUARANTEE_EXTRA_RATE = 90;
+
+/**
+ * 計算單日司機薪資（含羅東保底規則）
+ */
+function calcDriverDailyPay(pickupCount, driverRate, siteId) {
+  if (siteId === 'luodong') {
+    if (pickupCount === 0) return 0;
+    if (pickupCount <= LUODONG_GUARANTEE_THRESHOLD) return LUODONG_GUARANTEE_MIN_DAILY;
+    return LUODONG_GUARANTEE_MIN_DAILY + (pickupCount - LUODONG_GUARANTEE_THRESHOLD) * LUODONG_GUARANTEE_EXTRA_RATE;
+  }
+  return pickupCount * driverRate;
+}
+
+/**
+ * 產生雙週駕駛薪資明細（含羅東保底）
+ */
+function generateBiweeklyDriverReport(driverName, siteId, periodStart, periodEnd) {
+  const ss = siteId ? getSpreadsheetBySiteId(siteId) : SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('快速登記');
+  const settingsSheet = ss.getSheetByName('費用設定');
+
+  var driverRate = 80;
+  if (settingsSheet) {
+    var settings = settingsSheet.getDataRange().getValues();
+    for (var i = 1; i < settings.length; i++) {
+      if (settings[i][0] === siteId || settings[i][0] === 'all') {
+        driverRate = settings[i][4] || 80;
+        break;
+      }
+    }
+  }
+
+  if (!sheet) {
+    return '📋 司機薪資明細\n\n🚗 ' + driverName + ' 司機您好\n📅 ' + periodStart + ' ~ ' + periodEnd + '\n\n⚠️ 尚無載客紀錄';
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var dailyStats = {};
+  var totalAmount = 0;
+  var totalPickup = 0;
+  var workDays = 0;
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var rowSiteId = row[0];
+    var rowDate = String(row[1]);
+
+    if (siteId && siteId !== 'all' && rowSiteId !== siteId) continue;
+    if (rowDate < periodStart || rowDate > periodEnd) continue;
+
+    if (!dailyStats[rowDate]) {
+      dailyStats[rowDate] = { date: rowDate, count: 0, elders: [] };
+    }
+
+    var pickUp = row[4] === '是';
+    var dropOff = row[5] === '是';
+    if (pickUp || dropOff) {
+      dailyStats[rowDate].count++;
+      dailyStats[rowDate].elders.push(row[2]);
+      totalPickup++;
+    }
+  }
+
+  var days = Object.keys(dailyStats).sort();
+  var weekDayNames = ['日', '一', '二', '三', '四', '五', '六'];
+  var isLuodong = (siteId === 'luodong');
+
+  var message = '📋 司機薪資明細（雙週）\n\n';
+  message += '🚗 ' + driverName + ' 司機您好\n';
+  message += '📅 ' + formatShortDate(periodStart) + ' ~ ' + formatShortDate(periodEnd) + '\n';
+
+  if (isLuodong) {
+    message += '📌 羅東據點保底規則：≤' + LUODONG_GUARANTEE_THRESHOLD + '人 $' + LUODONG_GUARANTEE_MIN_DAILY + '/日，超過 +$' + LUODONG_GUARANTEE_EXTRA_RATE + '/人\n';
+  }
+  message += '\n【每日明細】\n';
+
+  if (days.length === 0) {
+    message += '本期無載客紀錄\n';
+  } else {
+    days.forEach(function(dateKey) {
+      var day = dailyStats[dateKey];
+      var date = new Date(dateKey);
+      var weekDay = weekDayNames[date.getDay()];
+      var shortDate = dateKey.length >= 10 ? dateKey.substring(5, 10) : dateKey;
+      var dailyPay = calcDriverDailyPay(day.count, driverRate, siteId);
+      totalAmount += dailyPay;
+      workDays++;
+
+      if (isLuodong) {
+        if (day.count > LUODONG_GUARANTEE_THRESHOLD) {
+          message += shortDate + '(' + weekDay + ') ' + day.count + '人 $' + LUODONG_GUARANTEE_MIN_DAILY + '+' + (day.count - LUODONG_GUARANTEE_THRESHOLD) + '×$' + LUODONG_GUARANTEE_EXTRA_RATE + '=$' + dailyPay + '\n';
+        } else {
+          message += shortDate + '(' + weekDay + ') ' + day.count + '人 保底$' + dailyPay + '\n';
+        }
+      } else {
+        message += shortDate + '(' + weekDay + ') ' + day.count + '人次 $' + (day.count * driverRate) + '\n';
+      }
+    });
+  }
+
+  message += '\n【本期統計】\n';
+  message += '📅 出車天數：' + workDays + ' 天\n';
+  message += '✅ 總人次：' + totalPickup + ' 人次\n';
+  message += '💰 應付金額：$' + totalAmount.toLocaleString() + '\n\n';
+  message += '感謝您的辛勞！💪';
+
+  return message;
+}
+
+/**
+ * 每 2 週發送司機薪資明細
+ * 此函數由定時觸發器每 2 週呼叫
+ */
+function sendBiweeklyDriverReports() {
+  var drivers = getDriverSettings();
+  if (drivers.length === 0) {
+    console.log('尚無司機設定');
+    return { success: false, message: '尚無司機設定' };
+  }
+
+  var today = new Date();
+  // 往前推 14 天
+  var periodEnd = new Date(today);
+  periodEnd.setDate(today.getDate() - 1); // 到昨天
+  var periodStart = new Date(periodEnd);
+  periodStart.setDate(periodEnd.getDate() - 13); // 14 天前
+
+  var startStr = formatDateYMD(periodStart);
+  var endStr = formatDateYMD(periodEnd);
+
+  var results = [];
+
+  drivers.forEach(function(driver) {
+    if (!driver.enabled) {
+      results.push({ name: driver.name, status: '已停用' });
+      return;
+    }
+
+    var message = generateBiweeklyDriverReport(driver.name, driver.siteId, startStr, endStr);
+    var sendResult = sendLineMessage(driver.lineUserId, message);
+
+    results.push({
+      name: driver.name,
+      status: sendResult.success ? '發送成功' : '發送失敗',
+      error: sendResult.error
+    });
+
+    Utilities.sleep(500);
+  });
+
+  console.log('雙週司機薪資發送結果:', JSON.stringify(results));
+  return { success: true, results: results };
+}
+
+// ===================================================
+// 每 2 週血壓報告 LINE 推送給家屬
+// ===================================================
+
+/**
+ * 產生單位長者的雙週血壓報告
+ */
+function generateBiweeklyBPReport(elderName, records) {
+  if (!records || records.length === 0) {
+    return null; // 沒有紀錄就不發
+  }
+
+  var systolicValues = [];
+  var diastolicValues = [];
+  var pulseValues = [];
+
+  records.forEach(function(r) {
+    var bp = String(r.bloodPressure || '');
+    if (bp.indexOf('/') > 0) {
+      var parts = bp.split('/');
+      var sys = parseInt(parts[0]);
+      var dia = parseInt(parts[1]);
+      if (sys > 0) systolicValues.push(sys);
+      if (dia > 0) diastolicValues.push(dia);
+    }
+    if (r.heartRate) pulseValues.push(Number(r.heartRate));
+  });
+
+  if (systolicValues.length === 0) return null;
+
+  // 計算統計
+  var avg = function(arr) {
+    return arr.length > 0 ? Math.round(arr.reduce(function(a, b) { return a + b; }, 0) / arr.length) : 0;
+  };
+  var median = function(arr) {
+    if (arr.length === 0) return 0;
+    var sorted = arr.slice().sort(function(a, b) { return a - b; });
+    var mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+  };
+  var max = function(arr) { return Math.max.apply(null, arr); };
+  var min = function(arr) { return Math.min.apply(null, arr); };
+
+  var avgSys = avg(systolicValues);
+  var avgDia = avg(diastolicValues);
+  var medSys = median(systolicValues);
+  var medDia = median(diastolicValues);
+
+  // 血壓分級
+  var level = '正常';
+  var emoji = '✅';
+  if (avgSys >= 180 || avgDia >= 120) { level = '高血壓危象'; emoji = '🔴'; }
+  else if (avgSys >= 160 || avgDia >= 100) { level = '第二期高血壓'; emoji = '🔴'; }
+  else if (avgSys >= 140 || avgDia >= 90) { level = '第一期高血壓'; emoji = '🟠'; }
+  else if (avgSys >= 130 || avgDia >= 85) { level = '高血壓前期'; emoji = '🟡'; }
+  else if (avgSys >= 120) { level = '血壓偏高'; emoji = '🟡'; }
+  else if (avgSys < 90 || avgDia < 60) { level = '低血壓'; emoji = '🔵'; }
+
+  var message = '❤️ ' + elderName + ' 的血壓報告\n';
+  message += '📅 近兩週（共 ' + records.length + ' 筆紀錄）\n\n';
+
+  message += '【統計數據】\n';
+  message += '📊 平均血壓：' + avgSys + '/' + avgDia + ' mmHg\n';
+  message += '📊 中位數血壓：' + medSys + '/' + medDia + ' mmHg\n';
+  message += '📈 最高：' + max(systolicValues) + '/' + max(diastolicValues) + '\n';
+  message += '📉 最低：' + min(systolicValues) + '/' + min(diastolicValues) + '\n';
+  if (pulseValues.length > 0) {
+    message += '💓 平均心率：' + avg(pulseValues) + ' 次/分\n';
+  }
+
+  message += '\n' + emoji + ' 評估分級：' + level + '\n';
+
+  if (level !== '正常' && level !== '血壓偏高') {
+    message += '\n⚠️ 建議就醫諮詢，並持續追蹤\n';
+  }
+
+  message += '\n【近期紀錄】\n';
+  var recentCount = Math.min(records.length, 5);
+  for (var i = 0; i < recentCount; i++) {
+    var r = records[i];
+    var shortDate = String(r.date).length >= 10 ? String(r.date).substring(5, 10) : String(r.date);
+    message += shortDate + ' ' + (r.bloodPressure || '-') + ' mmHg';
+    if (r.heartRate) message += ' 心率' + r.heartRate;
+    message += '\n';
+  }
+
+  message += '\n由照護據點關心您 🏠\n如有疑問請洽據點服務人員';
+
+  return message;
+}
+
+/**
+ * 每 2 週自動發送血壓報告給家屬
+ * 此函數由定時觸發器每 2 週呼叫
+ */
+function sendBiweeklyBPReports() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var elderSheet = ss.getSheetByName('長者名單');
+  var healthSheet = ss.getSheetByName('健康紀錄');
+
+  if (!elderSheet || !healthSheet) {
+    console.log('缺少長者名單或健康紀錄工作表');
+    return { success: false, message: '缺少必要工作表' };
+  }
+
+  // 取得所有長者及其家屬 LINE ID
+  var elderData = elderSheet.getDataRange().getValues();
+  var eldersWithFamily = [];
+  for (var i = 1; i < elderData.length; i++) {
+    var name = elderData[i][0];
+    var familyLineId = elderData[i][9]; // 第 10 欄：家屬LINE
+    if (name && familyLineId && String(familyLineId).trim().length > 0) {
+      eldersWithFamily.push({ name: name, familyLineId: String(familyLineId).trim() });
+    }
+  }
+
+  if (eldersWithFamily.length === 0) {
+    console.log('沒有設定家屬 LINE ID 的長者');
+    return { success: false, message: '沒有設定家屬 LINE ID' };
+  }
+
+  // 計算近兩週的日期範圍
+  var today = new Date();
+  var twoWeeksAgo = new Date(today);
+  twoWeeksAgo.setDate(today.getDate() - 14);
+  var startStr = formatDateYMD(twoWeeksAgo);
+  var endStr = formatDateYMD(today);
+
+  // 取得所有健康紀錄
+  var healthData = healthSheet.getDataRange().getValues();
+
+  var results = [];
+
+  eldersWithFamily.forEach(function(elder) {
+    // 篩選該長者近兩週的紀錄
+    var elderRecords = [];
+    for (var j = 1; j < healthData.length; j++) {
+      if (healthData[j][0] === elder.name) {
+        var recDate = String(healthData[j][1]);
+        if (recDate >= startStr && recDate <= endStr) {
+          elderRecords.push({
+            date: recDate,
+            bloodPressure: healthData[j][2],
+            heartRate: healthData[j][3],
+            weight: healthData[j][4],
+            note: healthData[j][5]
+          });
+        }
+      }
+    }
+
+    // 按日期倒序
+    elderRecords.sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
+
+    if (elderRecords.length === 0) {
+      results.push({ name: elder.name, status: '無紀錄，略過' });
+      return;
+    }
+
+    var message = generateBiweeklyBPReport(elder.name, elderRecords);
+    if (!message) {
+      results.push({ name: elder.name, status: '無有效血壓資料' });
+      return;
+    }
+
+    var sendResult = sendLineBPMessage(elder.familyLineId, message);
+    results.push({
+      name: elder.name,
+      familyLineId: elder.familyLineId.substring(0, 8) + '...',
+      recordCount: elderRecords.length,
+      status: sendResult.success ? '發送成功' : '發送失敗',
+      error: sendResult.error
+    });
+
+    Utilities.sleep(500);
+  });
+
+  // 同時發送總結給血壓 Bot 管理者
+  var bpAdminUserId = LINE_BP_ADMIN_USER_ID;
+  var summaryMsg = '📊 雙週血壓報告發送結果\n\n';
+  summaryMsg += '📅 ' + formatShortDate(startStr) + ' ~ ' + formatShortDate(endStr) + '\n\n';
+  var successCount = results.filter(function(r) { return r.status === '發送成功'; }).length;
+  var skipCount = results.filter(function(r) { return r.status === '無紀錄，略過' || r.status === '無有效血壓資料'; }).length;
+  var failCount = results.filter(function(r) { return r.status === '發送失敗'; }).length;
+  summaryMsg += '✅ 成功：' + successCount + ' 位\n';
+  if (skipCount > 0) summaryMsg += '⏭️ 略過（無紀錄）：' + skipCount + ' 位\n';
+  if (failCount > 0) summaryMsg += '❌ 失敗：' + failCount + ' 位\n';
+  summaryMsg += '\n共處理 ' + results.length + ' 位長者';
+
+  sendLineBPMessage(bpAdminUserId, summaryMsg);
+
+  console.log('雙週血壓報告發送結果:', JSON.stringify(results));
+  return { success: true, results: results };
+}
+
+// ===================================================
+// 每月 20 號資料鎖定 + 自動備份
+// ===================================================
+
+/**
+ * 每月 20 號自動備份上月資料
+ * 此函數由定時觸發器呼叫
+ */
+function monthlyBackupAndLock() {
+  var today = new Date();
+  var day = today.getDate();
+  
+  // 只在 20 號執行
+  if (day !== 20) {
+    console.log('今天不是 20 號，跳過備份');
+    return { success: false, message: '非 20 號' };
+  }
+
+  var lastMonth = new Date(today);
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  var lastMonthStr = formatDateYMD(lastMonth).substring(0, 7); // "2025-06"
+  var backupName = '備份_' + lastMonthStr;
+  
+  var results = [];
+  
+  // 針對每個據點做備份
+  var siteIds = Object.keys(SITE_SHEETS);
+  siteIds.forEach(function(siteId) {
+    try {
+      var ss = getSpreadsheetBySiteId(siteId);
+      
+      // 備份快速登記
+      var quickSheet = ss.getSheetByName('快速登記');
+      if (quickSheet) {
+        var backupSheet = ss.getSheetByName(backupName + '_快速登記');
+        if (!backupSheet) {
+          backupSheet = quickSheet.copyTo(ss);
+          backupSheet.setName(backupName + '_快速登記');
+          // 保護備份工作表
+          var protection = backupSheet.protect();
+          protection.setDescription('自動備份 - ' + lastMonthStr);
+          protection.setWarningOnly(true);
+        }
+      }
+      
+      // 備份活動紀錄
+      var activitySheet = ss.getSheetByName('活動紀錄');
+      if (activitySheet) {
+        var backupActivity = ss.getSheetByName(backupName + '_活動紀錄');
+        if (!backupActivity) {
+          backupActivity = activitySheet.copyTo(ss);
+          backupActivity.setName(backupName + '_活動紀錄');
+          var protectionA = backupActivity.protect();
+          protectionA.setDescription('自動備份 - ' + lastMonthStr);
+          protectionA.setWarningOnly(true);
+        }
+      }
+
+      results.push({ siteId: siteId, status: '備份完成' });
+    } catch (err) {
+      results.push({ siteId: siteId, status: '備份失敗', error: err.message });
+    }
+  });
+
+  // 通知管理者
+  var adminUserId = 'Udd3152e0622b3cf91e6da5913d1a3e88';
+  var msg = '🔒 月度自動備份完成\n\n';
+  msg += '📅 已備份 ' + lastMonthStr + ' 月資料\n\n';
+  results.forEach(function(r) {
+    msg += (r.status === '備份完成' ? '✅' : '❌') + ' ' + r.siteId + '：' + r.status + '\n';
+  });
+  msg += '\n上月資料已鎖定，前端將禁止修改';
+
+  sendLineMessage(adminUserId, msg);
+
+  console.log('月度備份結果:', JSON.stringify(results));
+  return { success: true, results: results };
+}
+
+// ===================================================
+// 定時觸發器設定（整合版）
+// ===================================================
+
+/**
+ * 設定所有定時觸發器（一次性執行）
+ * 在 Google Apps Script 編輯器中手動執行一次
+ */
+function setupAllTriggers() {
+  // 先清除所有舊的觸發器
+  var triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function(trigger) {
+    var handler = trigger.getHandlerFunction();
+    if (handler === 'sendWeeklyDriverReports' ||
+        handler === 'sendBiweeklyDriverReports' ||
+        handler === 'sendBiweeklyBPReports' ||
+        handler === 'monthlyBackupAndLock') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  // 1. 每 2 週司機薪資報告（隔週六 20:00）
+  ScriptApp.newTrigger('sendBiweeklyDriverReports')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.SATURDAY)
+    .atHour(20)
+    .everyWeeks(2)
+    .create();
+
+  // 2. 每 2 週血壓報告傳送家屬（隔週日 10:00）
+  ScriptApp.newTrigger('sendBiweeklyBPReports')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.SUNDAY)
+    .atHour(10)
+    .everyWeeks(2)
+    .create();
+
+  // 3. 每月 20 號自動備份（每天 01:00 檢查，函式內部判斷是否為 20 號）
+  ScriptApp.newTrigger('monthlyBackupAndLock')
+    .timeBased()
+    .atHour(1)
+    .everyDays(1)
+    .create();
+
+  console.log('✅ 所有觸發器已設定完成');
+  
+  // 通知管理者
+  var adminUserId = 'Udd3152e0622b3cf91e6da5913d1a3e88';
+  sendLineMessage(adminUserId, 
+    '⚙️ 定時任務已設定完成\n\n' +
+    '📋 司機薪資報告：隔週六 20:00\n' +
+    '❤️ 血壓報告傳送家屬：隔週日 10:00\n' +
+    '🔒 月度備份：每月 20 號 01:00\n\n' +
+    '所有通知將發送到此帳號');
+  
+  return { 
+    success: true, 
+    message: '已設定觸發器：雙週司機薪資、雙週血壓報告、每月備份' 
+  };
+}
+
+/**
+ * 手動測試：發送雙週駕駛報告
+ */
+function testBiweeklyDriverReports() {
+  return sendBiweeklyDriverReports();
+}
+
+/**
+ * 手動測試：發送雙週血壓報告
+ */
+function testBiweeklyBPReports() {
+  return sendBiweeklyBPReports();
+}
+
+/**
+ * 手動測試：發送 LINE 訊息給管理者
+ */
+function testSendToAdmin() {
+  var adminUserId = 'Udd3152e0622b3cf91e6da5913d1a3e88';
+  return sendLineMessage(adminUserId, '🔔 測試訊息\n\n系統運作正常！\n\n' + new Date().toLocaleString('zh-TW'));
 }
 
 /**

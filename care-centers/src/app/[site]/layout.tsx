@@ -21,7 +21,7 @@ export default async function SiteLayout({
     return (
         <SiteProvider siteId={siteId}>
             <SiteAuthWrapper>
-                <div className="min-h-screen bg-gray-50">
+                <div className="min-h-screen" style={{ background: 'var(--background)' }}>
                     <SiteNavigation siteName={siteConfig.name} siteColor={siteConfig.color} />
                     <main className="pb-20">
                         {children}

@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { financeRecordApi, FinanceRecordItem, BudgetItem, ReimbursementItem } from '@/lib/api';
 import { SITES } from '@/config/sites';
-import { ArrowLeft, Plus, Trash2, Copy, DollarSign, TrendingUp, TrendingDown, FileText, PiggyBank, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Copy, DollarSign, TrendingUp, TrendingDown, FileText, PiggyBank, RefreshCw, Lock, LogOut } from 'lucide-react';
+
+// ===== 管理帳號密碼（全據點共用） =====
+const FINANCE_ACCOUNT = 'gigi0982';
+const FINANCE_PASSWORD = 'kimi0915';
+const SESSION_KEY = 'finance_auth';
 
 // 支出分類
 const EXPENSE_CATEGORIES = [
@@ -34,11 +39,84 @@ const BUDGET_CATEGORIES = [
 
 type TabType = 'expense' | 'income' | 'overview';
 
-export default function FinanceManagementPage() {
-    const params = useParams();
-    const siteId = params.site as string;
-    const siteName = SITES[siteId]?.name || siteId;
+// ========================================
+// 登入畫面元件
+// ========================================
+function LoginScreen({ siteId, siteName, onLogin }: { siteId: string; siteName: string; onLogin: () => void }) {
+    const [account, setAccount] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
 
+    const handleLogin = () => {
+        if (account === FINANCE_ACCOUNT && password === FINANCE_PASSWORD) {
+            try { sessionStorage.setItem(SESSION_KEY, 'true'); } catch { /* */ }
+            onLogin();
+        } else {
+            setError('帳號或密碼錯誤');
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+            <div className="w-full max-w-sm">
+                <div className="bg-white rounded-2xl shadow-lg p-6">
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Lock className="w-8 h-8 text-emerald-600" />
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-800">收支管理系統</h2>
+                        <p className="text-sm text-gray-500 mt-1">請輸入管理帳號密碼</p>
+                    </div>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">帳號</label>
+                            <input
+                                type="text"
+                                value={account}
+                                onChange={e => { setAccount(e.target.value); setError(''); }}
+                                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                                placeholder="請輸入帳號"
+                                autoComplete="username"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">密碼</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={e => { setPassword(e.target.value); setError(''); }}
+                                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                                placeholder="請輸入密碼"
+                                autoComplete="current-password"
+                            />
+                        </div>
+                        {error && (
+                            <p className="text-red-500 text-sm text-center">{error}</p>
+                        )}
+                        <button
+                            onClick={handleLogin}
+                            className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition"
+                        >
+                            登入
+                        </button>
+                    </div>
+                    <div className="mt-4 text-center">
+                        <Link href={`/${siteId}`} className="text-sm text-gray-400 hover:text-gray-600">
+                            ← 返回{siteName}
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ========================================
+// 主內容元件（已登入才渲染）
+// ========================================
+function FinanceContent({ siteId, siteName, onLogout }: { siteId: string; siteName: string; onLogout: () => void }) {
     const [activeTab, setActiveTab] = useState<TabType>('expense');
     const [selectedMonth, setSelectedMonth] = useState(() => {
         const now = new Date();
@@ -69,7 +147,7 @@ export default function FinanceManagementPage() {
     const [isCopying, setIsCopying] = useState(false);
     const [message, setMessage] = useState('');
 
-    const loadExpenses = async () => {
+    const loadExpenses = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await financeRecordApi.getRecords(siteId, selectedMonth);
@@ -80,9 +158,9 @@ export default function FinanceManagementPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [siteId, selectedMonth]);
 
-    const loadBudget = async () => {
+    const loadBudget = useCallback(async () => {
         try {
             const data = await financeRecordApi.getBudget(siteId, currentYear);
             setBudgets(data.budgets || []);
@@ -90,11 +168,10 @@ export default function FinanceManagementPage() {
         } catch (err) {
             console.error('載入預算失敗:', err);
         }
-    };
+    }, [siteId, currentYear]);
 
-    // 載入資料
-    useEffect(() => { loadExpenses(); }, [selectedMonth, siteId]); // eslint-disable-line react-hooks/exhaustive-deps
-    useEffect(() => { loadBudget(); }, [currentYear, siteId]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { loadExpenses(); }, [loadExpenses]);
+    useEffect(() => { loadBudget(); }, [loadBudget]);
 
     // 新增支出
     const handleAddExpense = async () => {
@@ -212,7 +289,6 @@ export default function FinanceManagementPage() {
     const totalExpense = expenseRecords.reduce((s, r) => s + r.amount, 0);
     const totalIncome = incomeRecords.reduce((s, r) => s + r.amount, 0);
 
-    // 支出分類統計
     const expenseByCategory = useMemo(() => {
         const map: Record<string, number> = {};
         expenseRecords.forEach(r => {
@@ -221,7 +297,6 @@ export default function FinanceManagementPage() {
         return Object.entries(map).sort((a, b) => b[1] - a[1]);
     }, [expenseRecords]);
 
-    // 預算統計
     const budgetSummary = useMemo(() => {
         return budgets.map(b => {
             const used = reimbursements.filter(r => r.category === b.category).reduce((s, r) => s + r.amount, 0);
@@ -232,7 +307,6 @@ export default function FinanceManagementPage() {
     const totalBudget = budgets.reduce((s, b) => s + b.approvedAmount, 0);
     const totalUsed = budgetSummary.reduce((s, b) => s + b.used, 0);
 
-    // 月份選項
     const monthOptions = useMemo(() => {
         const opts = [];
         const now = new Date();
@@ -243,7 +317,6 @@ export default function FinanceManagementPage() {
         return opts;
     }, []);
 
-    // 清除訊息
     useEffect(() => {
         if (message) {
             const t = setTimeout(() => setMessage(''), 3000);
@@ -258,7 +331,7 @@ export default function FinanceManagementPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-24">
+        <div className="min-h-screen bg-gray-50 pb-8">
             {/* Header */}
             <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-3">
                 <div className="max-w-2xl mx-auto flex justify-between items-center">
@@ -269,6 +342,13 @@ export default function FinanceManagementPage() {
                         <DollarSign className="w-5 h-5" />
                         <h1 className="text-lg font-bold">{siteName} 收支管理</h1>
                     </div>
+                    <button
+                        onClick={onLogout}
+                        className="flex items-center gap-1 text-white/70 hover:text-white text-xs bg-white/15 hover:bg-white/25 px-2.5 py-1.5 rounded-lg transition"
+                    >
+                        <LogOut className="w-3.5 h-3.5" />
+                        登出
+                    </button>
                 </div>
             </div>
 
@@ -468,7 +548,6 @@ export default function FinanceManagementPage() {
                 {/* ========== 收入/預算 Tab ========== */}
                 {activeTab === 'income' && (
                     <>
-                        {/* 年度標題 */}
                         <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="font-bold text-gray-800">{currentYear} 年度核定預算</h2>
@@ -481,7 +560,6 @@ export default function FinanceManagementPage() {
                                 </button>
                             </div>
 
-                            {/* 預算總覽 */}
                             {budgetSummary.length > 0 ? (
                                 <div className="space-y-3">
                                     {budgetSummary.map(b => (
@@ -497,7 +575,6 @@ export default function FinanceManagementPage() {
                                                     餘 ${b.remaining.toLocaleString()}
                                                 </span>
                                             </div>
-                                            {/* 進度條 */}
                                             <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                                                 <div
                                                     className={`h-full rounded-full transition-all ${
@@ -510,7 +587,6 @@ export default function FinanceManagementPage() {
                                             <div className="text-right text-xs text-gray-400 mt-1">{b.percentage}%</div>
                                         </div>
                                     ))}
-                                    {/* 合計 */}
                                     <div className="border-t pt-3 flex justify-between font-bold">
                                         <span>年度合計</span>
                                         <div className="text-right">
@@ -526,7 +602,6 @@ export default function FinanceManagementPage() {
                             )}
                         </div>
 
-                        {/* 登記預算表單 */}
                         {showBudgetForm && (
                             <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 mb-4">
                                 <div className="font-bold text-blue-800 mb-3">📋 登記 {currentYear} 年度核定金額</div>
@@ -576,7 +651,6 @@ export default function FinanceManagementPage() {
                             </div>
                         )}
 
-                        {/* 核銷紀錄 */}
                         <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="font-bold text-gray-800">📑 核銷紀錄</h2>
@@ -589,7 +663,6 @@ export default function FinanceManagementPage() {
                                 </button>
                             </div>
 
-                            {/* 新增核銷表單 */}
                             {showReimburseForm && (
                                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
                                     <div className="space-y-2">
@@ -637,7 +710,6 @@ export default function FinanceManagementPage() {
                                 </div>
                             )}
 
-                            {/* 核銷列表 */}
                             {reimbursements.length === 0 ? (
                                 <p className="text-center text-gray-400 py-4 text-sm">尚無核銷紀錄</p>
                             ) : (
@@ -663,7 +735,6 @@ export default function FinanceManagementPage() {
                 {/* ========== 總覽 Tab ========== */}
                 {activeTab === 'overview' && (
                     <>
-                        {/* 月份選擇 */}
                         <div className="mb-4">
                             <select
                                 value={selectedMonth}
@@ -676,7 +747,6 @@ export default function FinanceManagementPage() {
                             </select>
                         </div>
 
-                        {/* 收支卡片 */}
                         <div className="grid grid-cols-3 gap-3 mb-4">
                             <div className="bg-emerald-500 text-white rounded-xl p-3 text-center">
                                 <div className="text-xs opacity-80">收入</div>
@@ -692,7 +762,6 @@ export default function FinanceManagementPage() {
                             </div>
                         </div>
 
-                        {/* 年度預算使用 */}
                         {budgetSummary.length > 0 && (
                             <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
                                 <h3 className="font-bold text-gray-800 mb-3">📊 {currentYear} 年度預算使用率</h3>
@@ -718,7 +787,6 @@ export default function FinanceManagementPage() {
                             </div>
                         )}
 
-                        {/* 支出分類明細 */}
                         {expenseByCategory.length > 0 && (
                             <div className="bg-white rounded-xl shadow-sm p-4">
                                 <h3 className="font-bold text-gray-800 mb-3">📋 {selectedMonth.replace('-', '年')}月 支出分類</h3>
@@ -745,4 +813,45 @@ export default function FinanceManagementPage() {
             </div>
         </div>
     );
+}
+
+// ========================================
+// 頁面入口（控制登入狀態）
+// ========================================
+export default function FinanceManagementPage() {
+    const params = useParams();
+    const siteId = params.site as string;
+    const siteName = SITES[siteId]?.name || siteId;
+
+    const [isAuthed, setIsAuthed] = useState(() => {
+        try {
+            return sessionStorage.getItem(SESSION_KEY) === 'true';
+        } catch { return false; }
+    });
+    const [mounted, setMounted] = useState(false);
+
+    // 只是標記 client side 已掛載，避免 SSR hydration 差異
+    useEffect(() => {
+        const timer = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(timer);
+    }, []);
+
+    const handleLogout = () => {
+        setIsAuthed(false);
+        try { sessionStorage.removeItem(SESSION_KEY); } catch { /* */ }
+    };
+
+    if (!mounted) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+            </div>
+        );
+    }
+
+    if (!isAuthed) {
+        return <LoginScreen siteId={siteId} siteName={siteName} onLogin={() => setIsAuthed(true)} />;
+    }
+
+    return <FinanceContent siteId={siteId} siteName={siteName} onLogout={handleLogout} />;
 }

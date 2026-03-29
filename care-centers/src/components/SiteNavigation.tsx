@@ -23,6 +23,11 @@ export default function SiteNavigation({ siteName, siteColor }: SiteNavigationPr
                 : pathname.split('/')[1];
     const { user, canManageUsers, canManageFinance } = useAuth();
 
+    // 收支管理頁面自行管理版面，不顯示系統導航列
+    if (pathname.endsWith('/finance')) {
+        return null;
+    }
+
     // 基本導航項目（所有人可見）
     const baseNavItems = [
         { href: `/${siteId}`, label: '首頁', icon: Home },

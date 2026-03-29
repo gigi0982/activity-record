@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { ROLE_CONFIG } from '@/types/user';
 import LoginForm from './LoginForm';
 import Link from 'next/link';
@@ -10,10 +10,20 @@ interface SiteAuthProps {
     children: React.ReactNode;
 }
 
+// 不需要系統登入、自行管理認證的頁面
+const SELF_AUTH_PAGES = ['/finance'];
+
 export default function SiteAuth({ children }: SiteAuthProps) {
     const params = useParams();
     const siteId = params.site as string;
+    const pathname = usePathname();
     const { user, isLoading, logout, canManageUsers, canManageFinance, changePassword } = useAuth();
+
+    // 檢查是否為自行管理認證的頁面（如收支管理），直接放行
+    const isSelfAuthPage = SELF_AUTH_PAGES.some(p => pathname === `/${siteId}${p}`);
+    if (isSelfAuthPage) {
+        return <>{children}</>;
+    }
 
     if (isLoading) {
         return (

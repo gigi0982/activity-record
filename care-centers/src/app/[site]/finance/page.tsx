@@ -48,7 +48,9 @@ function LoginScreen({ siteId, siteName, onLogin }: { siteId: string; siteName: 
     const [error, setError] = useState('');
 
     const handleLogin = () => {
-        if (account === FINANCE_ACCOUNT && password === FINANCE_PASSWORD) {
+        const inputAccount = account.trim();
+        const inputPassword = password.trim();
+        if (inputAccount === FINANCE_ACCOUNT && inputPassword === FINANCE_PASSWORD) {
             try { sessionStorage.setItem(SESSION_KEY, 'true'); } catch { /* */ }
             onLogin();
         } else {

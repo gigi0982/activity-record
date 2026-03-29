@@ -65,7 +65,7 @@ export default async function SiteDashboard({ params }: { params: Promise<{ site
 
     return (
         <div className="min-h-screen" style={{ background: 'var(--background)' }}>
-            <div className="max-w-4xl mx-auto p-5 pb-24">
+            <div className="max-w-4xl mx-auto p-4 sm:p-5 pb-24">
                 {/* 歡迎卡片 */}
                 <div
                     className="rounded-xl p-6 mb-8 relative overflow-hidden"
@@ -105,10 +105,10 @@ export default async function SiteDashboard({ params }: { params: Promise<{ site
                 </div>
 
                 {/* 快捷按鈕 */}
-                <div className="grid grid-cols-2 gap-4 mb-10">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-8 sm:mb-10">
                     <Link
                         href={`/${siteId}/quick`}
-                        className="group rounded-xl p-5 transition-all duration-200 cursor-pointer btn-hover-darken active:scale-[0.98]"
+                        className="group rounded-xl p-4 sm:p-5 transition-all duration-200 cursor-pointer btn-hover-darken active:scale-[0.98]"
                         style={{
                             background: 'var(--primary)',
                             boxShadow: 'var(--shadow-md)',
@@ -121,7 +121,7 @@ export default async function SiteDashboard({ params }: { params: Promise<{ site
                     </Link>
                     <Link
                         href={`/${siteId}/activity/new`}
-                        className="group rounded-xl p-5 transition-all duration-200 cursor-pointer btn-hover-darken active:scale-[0.98]"
+                        className="group rounded-xl p-4 sm:p-5 transition-all duration-200 cursor-pointer btn-hover-darken active:scale-[0.98]"
                         style={{
                             background: 'var(--accent)',
                             boxShadow: 'var(--shadow-md)',

@@ -99,16 +99,16 @@ export default function DriverReportPage() {
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
             <div className="bg-white shadow-sm print:hidden">
-                <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Link href={`/${siteId}`} className="text-gray-500 hover:text-gray-700">
+                <div className="max-w-4xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <Link href={`/${siteId}`} className="text-gray-500 hover:text-gray-700 text-sm">
                             ← 返回
                         </Link>
-                        <h1 className="text-xl font-bold text-gray-800">🚗 司機對帳報表</h1>
+                        <h1 className="text-base sm:text-xl font-bold text-gray-800">🚗 司機對帳報表</h1>
                     </div>
                     <button
                         onClick={handlePrint}
-                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                        className="bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm"
                     >
                         🖨️ 列印
                     </button>
@@ -119,31 +119,33 @@ export default function DriverReportPage() {
             <div className="max-w-4xl mx-auto px-4 py-6">
                 {/* 月份選擇器 */}
                 <div className="bg-white rounded-xl shadow-sm p-4 mb-6 print:hidden">
-                    <div className="flex items-center gap-4">
-                        <label className="font-medium text-gray-700">選擇月份：</label>
-                        <input
-                            type="month"
-                            value={month}
-                            onChange={(e) => setMonth(e.target.value)}
-                            className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <button
-                            onClick={loadReport}
-                            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
-                        >
-                            🔄 重新載入
-                        </button>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                        <label className="font-medium text-gray-700 text-sm whitespace-nowrap">選擇月份：</label>
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <input
+                                type="month"
+                                value={month}
+                                onChange={(e) => setMonth(e.target.value)}
+                                className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex-1 sm:flex-none"
+                            />
+                            <button
+                                onClick={loadReport}
+                                className="bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-600 transition text-sm whitespace-nowrap"
+                            >
+                                🔄 重新載入
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 {/* 報表內容 */}
-                <div className="bg-white rounded-xl shadow-sm p-6 print:shadow-none">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 print:shadow-none">
                     {/* 報表標題 */}
                     <div className="text-center mb-6 border-b pb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
                             {siteNames[siteId] || siteId} - 司機載客對帳表
                         </h2>
-                        <p className="text-lg text-gray-600 mt-1">
+                        <p className="text-base sm:text-lg text-gray-600 mt-1">
                             {month.replace('-', '年')}月
                         </p>
                         {report && (
@@ -192,9 +194,9 @@ export default function DriverReportPage() {
                         <>
                             {/* 羅東保底規則說明 */}
                             {isLuodong && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-sm">
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4 mb-4 text-sm">
                                     <p className="font-bold text-amber-800 mb-1">📌 羅東據點司機薪資規則</p>
-                                    <ul className="list-disc list-inside text-amber-700 space-y-0.5">
+                                    <ul className="list-disc list-inside text-amber-700 space-y-0.5 text-xs sm:text-sm">
                                         <li>每日保底 ${LUODONG_GUARANTEE.minDaily.toLocaleString()}（≤ {LUODONG_GUARANTEE.threshold} 人次，含照服員）</li>
                                         <li>超過 {LUODONG_GUARANTEE.threshold} 人次：每人加收 ${LUODONG_GUARANTEE.extraRate}</li>
                                         <li>無載客日不計薪</li>
@@ -202,7 +204,8 @@ export default function DriverReportPage() {
                                 </div>
                             )}
 
-                            <table className="w-full border-collapse mb-6">
+                            <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                            <table className="w-full border-collapse mb-6 min-w-[500px]">
                                 <thead>
                                     <tr className="bg-gray-100">
                                         <th className="border border-gray-300 px-3 py-2 text-left">日期</th>
@@ -271,19 +274,20 @@ export default function DriverReportPage() {
                                     </tr>
                                 </tfoot>
                             </table>
+                            </div>
 
                             {/* 簽名區 */}
                             <div className="mt-8 pt-6 border-t border-dashed">
-                                <div className="grid grid-cols-2 gap-8">
+                                <div className="grid grid-cols-2 gap-4 sm:gap-8">
                                     <div>
-                                        <p className="text-gray-600 mb-2">司機確認簽名：</p>
+                                        <p className="text-gray-600 mb-2 text-sm sm:text-base">司機確認簽名：</p>
                                         <div className="border-b border-gray-400 h-10"></div>
-                                        <p className="text-sm text-gray-400 mt-1">日期：＿＿＿年＿＿月＿＿日</p>
+                                        <p className="text-xs sm:text-sm text-gray-400 mt-1">日期：＿＿＿年＿＿月＿＿日</p>
                                     </div>
                                     <div>
-                                        <p className="text-gray-600 mb-2">據點確認簽名：</p>
+                                        <p className="text-gray-600 mb-2 text-sm sm:text-base">據點確認簽名：</p>
                                         <div className="border-b border-gray-400 h-10"></div>
-                                        <p className="text-sm text-gray-400 mt-1">日期：＿＿＿年＿＿月＿＿日</p>
+                                        <p className="text-xs sm:text-sm text-gray-400 mt-1">日期：＿＿＿年＿＿月＿＿日</p>
                                     </div>
                                 </div>
                             </div>

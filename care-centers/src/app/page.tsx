@@ -6,19 +6,19 @@ export default function HomePage() {
   const sites = getAllSites();
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--background)' }}>
+    <main className="min-h-screen flex items-center justify-center p-4 sm:p-6" style={{ background: 'var(--background)' }}>
       <div className="max-w-4xl w-full">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5" style={{ background: 'var(--primary-100)' }}>
-            <Building2 className="w-8 h-8" style={{ color: 'var(--primary)' }} />
+        <div className="text-center mb-8 sm:mb-10">
+          <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl mb-4 sm:mb-5" style={{ background: 'var(--primary-100)' }}>
+            <Building2 className="w-7 h-7 sm:w-8 sm:h-8" style={{ color: 'var(--primary)' }} />
           </div>
-          <h1 className="text-3xl font-bold mb-3" style={{ color: 'var(--foreground)' }}>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 sm:mb-3" style={{ color: 'var(--foreground)' }}>
             失智據點管理系統
           </h1>
-          <p style={{ color: 'var(--muted)', fontSize: '16px' }}>請選擇您要管理的據點</p>
+          <p style={{ color: 'var(--muted)', fontSize: '14px' }} className="sm:text-base">請選擇您要管理的據點</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {sites.map((site) => (
             <Link
               key={site.id}

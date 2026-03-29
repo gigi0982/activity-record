@@ -161,23 +161,34 @@ function handleLineWebhook(data) {
               const detailedReport = generateDetailedDriverReport(driver.name, driver.siteId);
               sendLineMessage(userId, detailedReport);
             } else if (messageText.includes('薪資') || messageText.includes('對帳')) {
-              // 查詢近兩週薪資
+              // 查詢近兩週薪資 - 使用 Flex 卡片
               var today = new Date();
               var twoWeeksAgo = new Date(today);
               twoWeeksAgo.setDate(today.getDate() - 14);
-              var report = generateBiweeklyDriverReport(driver.name, driver.siteId, formatDateYMD(twoWeeksAgo), formatDateYMD(today));
-              sendLineMessage(userId, report);
+              var salaryFlexResult = generateDriverSalaryFlexData(driver.name, driver.siteId, formatDateYMD(twoWeeksAgo), formatDateYMD(today));
+              if (salaryFlexResult && salaryFlexResult.flexCard) {
+                sendFlexMessage(userId, salaryFlexResult.flexCard, '🚗 司機薪資明細 - ' + driver.name);
+              } else {
+                // 如果 Flex 建立失敗，退回純文字
+                var report = generateBiweeklyDriverReport(driver.name, driver.siteId, formatDateYMD(twoWeeksAgo), formatDateYMD(today));
+                sendLineMessage(userId, report);
+              }
             } else {
               sendLineMessage(userId, `${driver.name} 司機您好！\n\n可用指令：\n📋 回覆「名單」→ 本週載送名單\n💰 回覆「薪資」→ 近兩週薪資明細`);
             }
           } else if (familyElder) {
-            // 家屬查詢血壓（使用血壓家屬 Bot 回覆）
+            // 家屬查詢血壓（使用血壓家屬 Bot 回覆）- 使用 Flex 卡片
             if (messageText.includes('血壓') || messageText.includes('健康') || messageText.includes('查詢')) {
               var elderRecords = getHealthByElder(familyElder.name);
               var recentRecords = elderRecords.slice(0, 14); // 最近 14 筆
               if (recentRecords.length > 0) {
-                var bpReport = generateBiweeklyBPReport(familyElder.name, recentRecords);
-                sendLineBPMessage(userId, bpReport || '目前尚無血壓紀錄');
+                var bpFlexResult = generateBPFlexData(familyElder.name, recentRecords);
+                if (bpFlexResult && bpFlexResult.flexCard) {
+                  sendFlexBPMessage(userId, bpFlexResult.flexCard, '❤️ ' + familyElder.name + ' 的血壓報告');
+                } else {
+                  var bpReport = generateBiweeklyBPReport(familyElder.name, recentRecords);
+                  sendLineBPMessage(userId, bpReport || '目前尚無血壓紀錄');
+                }
               } else {
                 sendLineBPMessage(userId, '❤️ ' + familyElder.name + '\n\n目前尚無血壓紀錄，紀錄後將定期推送報告給您。');
               }
@@ -1709,6 +1720,779 @@ function sendLineMessageWithToken(userId, message, token) {
 }
 
 /**
+ * 發送 LINE Flex Message（指定 token）
+ * @param {string} userId - LINE User ID
+ * @param {Object} flexContent - Flex Message 的 contents（bubble 或 carousel）
+ * @param {string} altText - 無法顯示 Flex 時的替代文字
+ * @param {string} token - LINE Channel Access Token
+ */
+function sendFlexMessageWithToken(userId, flexContent, altText, token) {
+  const url = 'https://api.line.me/v2/bot/message/push';
+  
+  const payload = {
+    to: userId,
+    messages: [
+      {
+        type: 'flex',
+        altText: altText,
+        contents: flexContent
+      }
+    ]
+  };
+  
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'Authorization': 'Bearer ' + token
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    
+    if (responseCode === 200) {
+      return { success: true, message: 'Flex 訊息發送成功' };
+    } else {
+      const responseBody = response.getContentText();
+      console.log('LINE Flex API 錯誤:', responseBody);
+      return { success: false, error: responseBody };
+    }
+  } catch (error) {
+    console.log('發送 Flex 訊息失敗:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/** 發送 Flex Message（司機 Bot） */
+function sendFlexMessage(userId, flexContent, altText) {
+  return sendFlexMessageWithToken(userId, flexContent, altText, LINE_CHANNEL_ACCESS_TOKEN);
+}
+
+/** 發送 Flex Message（血壓家屬 Bot） */
+function sendFlexBPMessage(userId, flexContent, altText) {
+  return sendFlexMessageWithToken(userId, flexContent, altText, LINE_BP_CHANNEL_ACCESS_TOKEN);
+}
+
+// ===================================================
+// Flex Message 卡片模板
+// ===================================================
+
+/**
+ * 建立司機薪資 Flex Message 卡片
+ */
+function buildDriverSalaryFlexCard(driverName, siteId, periodStart, periodEnd, dailyDetails, totalPickup, totalAmount, workDays, driverRate) {
+  var isLuodong = (siteId === 'luodong');
+  
+  // 每日明細列
+  var dailyRows = [];
+  dailyDetails.forEach(function(day) {
+    var weekDayNames = ['日', '一', '二', '三', '四', '五', '六'];
+    var date = new Date(day.date);
+    var weekDay = weekDayNames[date.getDay()];
+    var shortDate = day.date.length >= 10 ? day.date.substring(5, 10) : day.date;
+    
+    dailyRows.push({
+      type: 'box',
+      layout: 'horizontal',
+      contents: [
+        {
+          type: 'text',
+          text: shortDate + '(' + weekDay + ')',
+          size: 'sm',
+          color: '#555555',
+          flex: 3
+        },
+        {
+          type: 'text',
+          text: day.count + '人',
+          size: 'sm',
+          color: '#111111',
+          align: 'center',
+          flex: 2
+        },
+        {
+          type: 'text',
+          text: '$' + day.amount.toLocaleString(),
+          size: 'sm',
+          color: '#0369A1',
+          align: 'end',
+          weight: 'bold',
+          flex: 2
+        }
+      ],
+      margin: 'md'
+    });
+  });
+
+  // 限制最多顯示 14 天，避免卡片過長
+  if (dailyRows.length > 14) {
+    dailyRows = dailyRows.slice(0, 14);
+    dailyRows.push({
+      type: 'text',
+      text: '...更多紀錄請查看系統',
+      size: 'xs',
+      color: '#aaaaaa',
+      margin: 'md'
+    });
+  }
+
+  var bodyContents = [
+    // 標題
+    {
+      type: 'text',
+      text: '🚗 司機薪資明細',
+      weight: 'bold',
+      color: '#0369A1',
+      size: 'lg'
+    },
+    // 司機姓名與期間
+    {
+      type: 'box',
+      layout: 'vertical',
+      margin: 'lg',
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: '司機', size: 'sm', color: '#aaaaaa', flex: 2 },
+            { type: 'text', text: driverName, size: 'sm', color: '#111111', weight: 'bold', flex: 5 }
+          ]
+        },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'sm',
+          contents: [
+            { type: 'text', text: '期間', size: 'sm', color: '#aaaaaa', flex: 2 },
+            { type: 'text', text: formatShortDate(periodStart) + ' ~ ' + formatShortDate(periodEnd), size: 'sm', color: '#111111', flex: 5 }
+          ]
+        }
+      ]
+    },
+    // 分隔線
+    {
+      type: 'separator',
+      margin: 'lg'
+    },
+    // 明細表頭
+    {
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'lg',
+      contents: [
+        { type: 'text', text: '日期', size: 'xs', color: '#aaaaaa', flex: 3 },
+        { type: 'text', text: '人次', size: 'xs', color: '#aaaaaa', align: 'center', flex: 2 },
+        { type: 'text', text: '金額', size: 'xs', color: '#aaaaaa', align: 'end', flex: 2 }
+      ]
+    }
+  ];
+
+  // 加入每日明細
+  dailyRows.forEach(function(row) { bodyContents.push(row); });
+
+  // 分隔線 + 統計
+  bodyContents.push({
+    type: 'separator',
+    margin: 'lg'
+  });
+
+  // 統計區塊
+  bodyContents.push({
+    type: 'box',
+    layout: 'vertical',
+    margin: 'lg',
+    contents: [
+      {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '📅 出車天數', size: 'sm', color: '#555555', flex: 4 },
+          { type: 'text', text: workDays + ' 天', size: 'sm', color: '#111111', weight: 'bold', align: 'end', flex: 3 }
+        ]
+      },
+      {
+        type: 'box',
+        layout: 'horizontal',
+        margin: 'sm',
+        contents: [
+          { type: 'text', text: '✅ 總載客人次', size: 'sm', color: '#555555', flex: 4 },
+          { type: 'text', text: totalPickup + ' 人次', size: 'sm', color: '#111111', weight: 'bold', align: 'end', flex: 3 }
+        ]
+      },
+      {
+        type: 'box',
+        layout: 'horizontal',
+        margin: 'md',
+        contents: [
+          { type: 'text', text: '💰 應付金額', size: 'md', color: '#0369A1', weight: 'bold', flex: 4 },
+          { type: 'text', text: '$' + totalAmount.toLocaleString(), size: 'xl', color: '#0369A1', weight: 'bold', align: 'end', flex: 3 }
+        ]
+      }
+    ]
+  });
+
+  // 羅東規則備註
+  var footerContents = [];
+  if (isLuodong) {
+    footerContents.push({
+      type: 'text',
+      text: '📌 保底 $1,800/日（≤20人），超過 +$90/人',
+      size: 'xxs',
+      color: '#D97706',
+      wrap: true
+    });
+  }
+  footerContents.push({
+    type: 'text',
+    text: '感謝您的辛勞 💪 照護據點關心您',
+    size: 'xxs',
+    color: '#aaaaaa',
+    margin: 'sm',
+    wrap: true
+  });
+
+  return {
+    type: 'bubble',
+    size: 'mega',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            {
+              type: 'text',
+              text: '🏠 照護據點',
+              size: 'xs',
+              color: '#ffffff',
+              flex: 0
+            }
+          ]
+        }
+      ],
+      backgroundColor: '#0369A1',
+      paddingAll: '15px'
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: bodyContents,
+      paddingAll: '20px'
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      contents: footerContents,
+      paddingAll: '15px'
+    },
+    styles: {
+      footer: {
+        separator: true
+      }
+    }
+  };
+}
+
+/**
+ * 建立血壓報告 Flex Message 卡片
+ */
+function buildBPReportFlexCard(elderName, records, stats) {
+  // stats = { avgSys, avgDia, medSys, medDia, maxSys, maxDia, minSys, minDia, avgPulse, level, emoji, recordCount }
+  
+  // 血壓分級顏色
+  var levelColorMap = {
+    '正常': '#22C55E',
+    '血壓偏高': '#EAB308',
+    '高血壓前期': '#D97706',
+    '第一期高血壓': '#EF4444',
+    '第二期高血壓': '#DC2626',
+    '高血壓危象': '#991B1B',
+    '低血壓': '#3B82F6'
+  };
+  var levelColor = levelColorMap[stats.level] || '#22C55E';
+  var headerColor = (stats.level === '正常' || stats.level === '血壓偏高') ? '#22C55E' : '#EF4444';
+
+  // 近期紀錄列
+  var recentRows = [];
+  var recentCount = Math.min(records.length, 5);
+  for (var i = 0; i < recentCount; i++) {
+    var r = records[i];
+    var shortDate = String(r.date).length >= 10 ? String(r.date).substring(5, 10) : String(r.date);
+    recentRows.push({
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'md',
+      contents: [
+        { type: 'text', text: shortDate, size: 'sm', color: '#555555', flex: 2 },
+        { type: 'text', text: String(r.bloodPressure || '-'), size: 'sm', color: '#111111', weight: 'bold', align: 'center', flex: 3 },
+        { type: 'text', text: r.heartRate ? (r.heartRate + ' bpm') : '-', size: 'sm', color: '#888888', align: 'end', flex: 2 }
+      ]
+    });
+  }
+
+  var bodyContents = [
+    // 長者姓名
+    {
+      type: 'text',
+      text: '❤️ ' + elderName + ' 的血壓報告',
+      weight: 'bold',
+      color: '#0F172A',
+      size: 'lg',
+      wrap: true
+    },
+    // 期間
+    {
+      type: 'text',
+      text: '📅 近兩週（共 ' + stats.recordCount + ' 筆紀錄）',
+      size: 'sm',
+      color: '#aaaaaa',
+      margin: 'sm'
+    },
+    // 分隔線
+    { type: 'separator', margin: 'lg' },
+    // 血壓分級 Badge
+    {
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'lg',
+      contents: [
+        {
+          type: 'text',
+          text: stats.emoji + ' 評估分級',
+          size: 'sm',
+          color: '#555555',
+          flex: 4
+        },
+        {
+          type: 'text',
+          text: stats.level,
+          size: 'sm',
+          color: levelColor,
+          weight: 'bold',
+          align: 'end',
+          flex: 3
+        }
+      ]
+    },
+    // 統計卡片
+    { type: 'separator', margin: 'lg' },
+    {
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'lg',
+      contents: [
+        {
+          type: 'box',
+          layout: 'vertical',
+          flex: 1,
+          contents: [
+            { type: 'text', text: '📊 平均', size: 'xs', color: '#aaaaaa', align: 'center' },
+            { type: 'text', text: stats.avgSys + '/' + stats.avgDia, size: 'md', color: '#0369A1', weight: 'bold', align: 'center', margin: 'sm' }
+          ]
+        },
+        { type: 'separator' },
+        {
+          type: 'box',
+          layout: 'vertical',
+          flex: 1,
+          contents: [
+            { type: 'text', text: '📊 中位數', size: 'xs', color: '#aaaaaa', align: 'center' },
+            { type: 'text', text: stats.medSys + '/' + stats.medDia, size: 'md', color: '#0369A1', weight: 'bold', align: 'center', margin: 'sm' }
+          ]
+        }
+      ]
+    },
+    {
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'md',
+      contents: [
+        {
+          type: 'box',
+          layout: 'vertical',
+          flex: 1,
+          contents: [
+            { type: 'text', text: '📈 最高', size: 'xs', color: '#aaaaaa', align: 'center' },
+            { type: 'text', text: stats.maxSys + '/' + stats.maxDia, size: 'sm', color: '#EF4444', weight: 'bold', align: 'center', margin: 'sm' }
+          ]
+        },
+        { type: 'separator' },
+        {
+          type: 'box',
+          layout: 'vertical',
+          flex: 1,
+          contents: [
+            { type: 'text', text: '📉 最低', size: 'xs', color: '#aaaaaa', align: 'center' },
+            { type: 'text', text: stats.minSys + '/' + stats.minDia, size: 'sm', color: '#3B82F6', weight: 'bold', align: 'center', margin: 'sm' }
+          ]
+        }
+      ]
+    }
+  ];
+
+  // 心率
+  if (stats.avgPulse > 0) {
+    bodyContents.push({
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'md',
+      contents: [
+        { type: 'text', text: '💓 平均心率', size: 'sm', color: '#555555', flex: 4 },
+        { type: 'text', text: stats.avgPulse + ' 次/分', size: 'sm', color: '#111111', weight: 'bold', align: 'end', flex: 3 }
+      ]
+    });
+  }
+
+  // 近期紀錄
+  bodyContents.push({ type: 'separator', margin: 'lg' });
+  bodyContents.push({
+    type: 'text',
+    text: '【近期紀錄】',
+    size: 'sm',
+    color: '#555555',
+    weight: 'bold',
+    margin: 'lg'
+  });
+  // 表頭
+  bodyContents.push({
+    type: 'box',
+    layout: 'horizontal',
+    margin: 'sm',
+    contents: [
+      { type: 'text', text: '日期', size: 'xs', color: '#aaaaaa', flex: 2 },
+      { type: 'text', text: '血壓', size: 'xs', color: '#aaaaaa', align: 'center', flex: 3 },
+      { type: 'text', text: '心率', size: 'xs', color: '#aaaaaa', align: 'end', flex: 2 }
+    ]
+  });
+  // 近期列
+  recentRows.forEach(function(row) { bodyContents.push(row); });
+
+  // 異常提醒
+  var footerContents = [];
+  if (stats.level !== '正常' && stats.level !== '血壓偏高') {
+    footerContents.push({
+      type: 'text',
+      text: '⚠️ 建議就醫諮詢，並持續追蹤血壓',
+      size: 'xs',
+      color: '#EF4444',
+      wrap: true
+    });
+  }
+  footerContents.push({
+    type: 'text',
+    text: '由照護據點關心您 🏠',
+    size: 'xxs',
+    color: '#aaaaaa',
+    margin: 'sm',
+    wrap: true
+  });
+
+  return {
+    type: 'bubble',
+    size: 'mega',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: '❤️ 血壓健康報告',
+          size: 'sm',
+          color: '#ffffff',
+          weight: 'bold'
+        }
+      ],
+      backgroundColor: headerColor,
+      paddingAll: '15px'
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: bodyContents,
+      paddingAll: '20px'
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      contents: footerContents,
+      paddingAll: '15px'
+    },
+    styles: {
+      footer: {
+        separator: true
+      }
+    }
+  };
+}
+
+// ===================================================
+// Flex Data 生成器（從真實資料建立 Flex 卡片）
+// ===================================================
+
+/**
+ * 從真實資料產生司機薪資 Flex 卡片資料
+ * 用於 webhook 回覆和定時推送
+ */
+function generateDriverSalaryFlexData(driverName, siteId, periodStart, periodEnd) {
+  try {
+    var ss = siteId ? getSpreadsheetBySiteId(siteId) : SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('快速登記');
+    var settingsSheet = ss.getSheetByName('費用設定');
+
+    var driverRate = 80;
+    if (settingsSheet) {
+      var settings = settingsSheet.getDataRange().getValues();
+      for (var i = 1; i < settings.length; i++) {
+        if (settings[i][0] === siteId || settings[i][0] === 'all') {
+          driverRate = settings[i][4] || 80;
+          break;
+        }
+      }
+    }
+
+    if (!sheet) return null;
+
+    var data = sheet.getDataRange().getValues();
+    var dailyStats = {};
+    var totalPickup = 0;
+
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var rowSiteId = row[0];
+      var rowDate = String(row[1]);
+      if (siteId && siteId !== 'all' && rowSiteId !== siteId) continue;
+      if (rowDate < periodStart || rowDate > periodEnd) continue;
+
+      if (!dailyStats[rowDate]) {
+        dailyStats[rowDate] = { date: rowDate, count: 0 };
+      }
+      var pickUp = row[4] === '是';
+      var dropOff = row[5] === '是';
+      if (pickUp || dropOff) {
+        dailyStats[rowDate].count++;
+        totalPickup++;
+      }
+    }
+
+    var days = Object.keys(dailyStats).sort();
+    var dailyDetails = [];
+    var totalAmount = 0;
+
+    days.forEach(function(dateKey) {
+      var day = dailyStats[dateKey];
+      var dailyPay = calcDriverDailyPay(day.count, driverRate, siteId);
+      totalAmount += dailyPay;
+      dailyDetails.push({ date: dateKey, count: day.count, amount: dailyPay });
+    });
+
+    var flexCard = buildDriverSalaryFlexCard(driverName, siteId, periodStart, periodEnd, dailyDetails, totalPickup, totalAmount, days.length, driverRate);
+    return { flexCard: flexCard, totalAmount: totalAmount, totalPickup: totalPickup };
+  } catch (e) {
+    console.log('generateDriverSalaryFlexData 錯誤:', e.message);
+    return null;
+  }
+}
+
+/**
+ * 從真實資料產生血壓報告 Flex 卡片資料
+ * 用於 webhook 回覆和定時推送
+ */
+function generateBPFlexData(elderName, records) {
+  try {
+    if (!records || records.length === 0) return null;
+
+    var systolicValues = [];
+    var diastolicValues = [];
+    var pulseValues = [];
+
+    records.forEach(function(r) {
+      var bp = String(r.bloodPressure || '');
+      if (bp.indexOf('/') > 0) {
+        var parts = bp.split('/');
+        var sys = parseInt(parts[0]);
+        var dia = parseInt(parts[1]);
+        if (sys > 0) systolicValues.push(sys);
+        if (dia > 0) diastolicValues.push(dia);
+      }
+      if (r.heartRate) pulseValues.push(Number(r.heartRate));
+    });
+
+    if (systolicValues.length === 0) return null;
+
+    var avg = function(arr) { return arr.length > 0 ? Math.round(arr.reduce(function(a, b) { return a + b; }, 0) / arr.length) : 0; };
+    var median = function(arr) {
+      if (arr.length === 0) return 0;
+      var sorted = arr.slice().sort(function(a, b) { return a - b; });
+      var mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+    };
+
+    var avgSys = avg(systolicValues);
+    var avgDia = avg(diastolicValues);
+
+    var level = '正常';
+    var emoji = '✅';
+    if (avgSys >= 180 || avgDia >= 120) { level = '高血壓危象'; emoji = '🔴'; }
+    else if (avgSys >= 160 || avgDia >= 100) { level = '第二期高血壓'; emoji = '🔴'; }
+    else if (avgSys >= 140 || avgDia >= 90) { level = '第一期高血壓'; emoji = '🟠'; }
+    else if (avgSys >= 130 || avgDia >= 85) { level = '高血壓前期'; emoji = '🟡'; }
+    else if (avgSys >= 120) { level = '血壓偏高'; emoji = '🟡'; }
+    else if (avgSys < 90 || avgDia < 60) { level = '低血壓'; emoji = '🔵'; }
+
+    var stats = {
+      avgSys: avgSys,
+      avgDia: avgDia,
+      medSys: median(systolicValues),
+      medDia: median(diastolicValues),
+      maxSys: Math.max.apply(null, systolicValues),
+      maxDia: Math.max.apply(null, diastolicValues),
+      minSys: Math.min.apply(null, systolicValues),
+      minDia: Math.min.apply(null, diastolicValues),
+      avgPulse: avg(pulseValues),
+      level: level,
+      emoji: emoji,
+      recordCount: records.length
+    };
+
+    var flexCard = buildBPReportFlexCard(elderName, records, stats);
+    return { flexCard: flexCard, stats: stats };
+  } catch (e) {
+    console.log('generateBPFlexData 錯誤:', e.message);
+    return null;
+  }
+}
+
+// ===================================================
+// 測試用：發送 Flex Message 卡片
+// ===================================================
+
+/**
+ * 測試發送司機薪資 Flex 卡片（發送到司機 Bot 管理者）
+ */
+function testSendDriverFlexCard() {
+  // 模擬資料
+  var today = new Date();
+  var twoWeeksAgo = new Date(today);
+  twoWeeksAgo.setDate(today.getDate() - 13);
+  var startStr = formatDateYMD(twoWeeksAgo);
+  var endStr = formatDateYMD(today);
+
+  var mockDailyDetails = [];
+  for (var i = 0; i < 10; i++) {
+    var d = new Date(twoWeeksAgo);
+    d.setDate(twoWeeksAgo.getDate() + i);
+    if (d.getDay() === 0 || d.getDay() === 6) continue; // 跳過週末
+    var count = Math.floor(Math.random() * 15) + 8;
+    var amount = count <= 20 ? 1800 : 1800 + (count - 20) * 90;
+    mockDailyDetails.push({
+      date: formatDateYMD(d),
+      count: count,
+      amount: amount
+    });
+  }
+
+  var totalPickup = mockDailyDetails.reduce(function(s, d) { return s + d.count; }, 0);
+  var totalAmount = mockDailyDetails.reduce(function(s, d) { return s + d.amount; }, 0);
+
+  var flexCard = buildDriverSalaryFlexCard(
+    '王大明',
+    'luodong',
+    startStr,
+    endStr,
+    mockDailyDetails,
+    totalPickup,
+    totalAmount,
+    mockDailyDetails.length,
+    80
+  );
+
+  var result = sendFlexMessage(LINE_DRIVER_ADMIN_USER_ID, flexCard, '🚗 司機薪資明細 - 王大明');
+  console.log('測試司機 Flex 卡片結果:', JSON.stringify(result));
+  return result;
+}
+
+/**
+ * 測試發送血壓報告 Flex 卡片（發送到血壓 Bot 管理者）
+ */
+function testSendBPFlexCard() {
+  // 模擬資料
+  var mockRecords = [];
+  var today = new Date();
+  for (var i = 0; i < 8; i++) {
+    var d = new Date(today);
+    d.setDate(today.getDate() - i * 2);
+    var sys = Math.floor(Math.random() * 40) + 120;
+    var dia = Math.floor(Math.random() * 20) + 70;
+    var pulse = Math.floor(Math.random() * 20) + 65;
+    mockRecords.push({
+      date: formatDateYMD(d),
+      bloodPressure: sys + '/' + dia,
+      heartRate: pulse,
+      weight: 62,
+      note: ''
+    });
+  }
+
+  // 計算統計
+  var systolicValues = [];
+  var diastolicValues = [];
+  var pulseValues = [];
+  mockRecords.forEach(function(r) {
+    var parts = String(r.bloodPressure).split('/');
+    systolicValues.push(parseInt(parts[0]));
+    diastolicValues.push(parseInt(parts[1]));
+    if (r.heartRate) pulseValues.push(r.heartRate);
+  });
+
+  var avg = function(arr) { return arr.length > 0 ? Math.round(arr.reduce(function(a, b) { return a + b; }, 0) / arr.length) : 0; };
+  var median = function(arr) {
+    var sorted = arr.slice().sort(function(a, b) { return a - b; });
+    var mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+  };
+
+  var avgSys = avg(systolicValues);
+  var avgDia = avg(diastolicValues);
+
+  var level = '正常';
+  var emoji = '✅';
+  if (avgSys >= 180 || avgDia >= 120) { level = '高血壓危象'; emoji = '🔴'; }
+  else if (avgSys >= 160 || avgDia >= 100) { level = '第二期高血壓'; emoji = '🔴'; }
+  else if (avgSys >= 140 || avgDia >= 90) { level = '第一期高血壓'; emoji = '🟠'; }
+  else if (avgSys >= 130 || avgDia >= 85) { level = '高血壓前期'; emoji = '🟡'; }
+  else if (avgSys >= 120) { level = '血壓偏高'; emoji = '🟡'; }
+  else if (avgSys < 90 || avgDia < 60) { level = '低血壓'; emoji = '🔵'; }
+
+  var stats = {
+    avgSys: avgSys,
+    avgDia: avgDia,
+    medSys: median(systolicValues),
+    medDia: median(diastolicValues),
+    maxSys: Math.max.apply(null, systolicValues),
+    maxDia: Math.max.apply(null, diastolicValues),
+    minSys: Math.min.apply(null, systolicValues),
+    minDia: Math.min.apply(null, diastolicValues),
+    avgPulse: avg(pulseValues),
+    level: level,
+    emoji: emoji,
+    recordCount: mockRecords.length
+  };
+
+  var flexCard = buildBPReportFlexCard('陳阿嬤', mockRecords, stats);
+
+  var result = sendFlexBPMessage(LINE_BP_ADMIN_USER_ID, flexCard, '❤️ 陳阿嬤 的血壓報告');
+  console.log('測試血壓 Flex 卡片結果:', JSON.stringify(result));
+  return result;
+}
+
+/**
  * 取得司機設定列表
  */
 function getDriverSettings() {
@@ -2213,8 +2997,16 @@ function sendBiweeklyDriverReports() {
       return;
     }
 
-    var message = generateBiweeklyDriverReport(driver.name, driver.siteId, startStr, endStr);
-    var sendResult = sendLineMessage(driver.lineUserId, message);
+    // 優先使用 Flex 卡片
+    var flexResult = generateDriverSalaryFlexData(driver.name, driver.siteId, startStr, endStr);
+    var sendResult;
+    if (flexResult && flexResult.flexCard) {
+      sendResult = sendFlexMessage(driver.lineUserId, flexResult.flexCard, '🚗 司機薪資明細 - ' + driver.name);
+    } else {
+      // 退回純文字
+      var message = generateBiweeklyDriverReport(driver.name, driver.siteId, startStr, endStr);
+      sendResult = sendLineMessage(driver.lineUserId, message);
+    }
 
     results.push({
       name: driver.name,
@@ -2394,7 +3186,14 @@ function sendBiweeklyBPReports() {
       return;
     }
 
-    var sendResult = sendLineBPMessage(elder.familyLineId, message);
+    // 優先使用 Flex 卡片
+    var bpFlexResult = generateBPFlexData(elder.name, elderRecords);
+    var sendResult;
+    if (bpFlexResult && bpFlexResult.flexCard) {
+      sendResult = sendFlexBPMessage(elder.familyLineId, bpFlexResult.flexCard, '❤️ ' + elder.name + ' 的血壓報告');
+    } else {
+      sendResult = sendLineBPMessage(elder.familyLineId, message);
+    }
     results.push({
       name: elder.name,
       familyLineId: elder.familyLineId.substring(0, 8) + '...',

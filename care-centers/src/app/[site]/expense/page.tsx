@@ -234,27 +234,27 @@ export default function ExpenseEntryPage() {
             )}
 
             {/* 標題區 */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-b-2xl shadow-lg">
-                <div className="flex items-center justify-between">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sm:p-6 rounded-b-2xl shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-bold flex items-center gap-2">
+                        <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                             💼 支出登記
                         </h1>
-                        <p className="text-blue-200 text-sm mt-1">便當、駕駛薪資、工時、零用金</p>
+                        <p className="text-blue-200 text-xs sm:text-sm mt-1">便當、駕駛薪資、工時、零用金</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                         <input
                             type="date"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
-                            className="bg-white/20 px-3 py-1.5 rounded-lg text-sm text-white border-none cursor-pointer"
+                            className="bg-white/20 px-2 sm:px-3 py-1.5 rounded-lg text-sm text-white border-none cursor-pointer flex-1 sm:flex-none"
                             style={{ colorScheme: 'dark' }}
                         />
                         <Link
                             href={`/${siteId}`}
-                            className="bg-white/20 px-3 py-1.5 rounded-lg text-sm hover:bg-white/30"
+                            className="bg-white/20 px-3 py-1.5 rounded-lg text-sm hover:bg-white/30 whitespace-nowrap"
                         >
-                            ← 返回首頁
+                            ← 返回
                         </Link>
                     </div>
                 </div>
@@ -307,39 +307,39 @@ export default function ExpenseEntryPage() {
                         </div>
 
                         <div className="space-y-4">
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 sm:gap-4">
                                 <input
                                     type="text"
                                     value={storeA.name}
                                     onChange={(e) => setStoreA({ ...storeA, name: e.target.value })}
-                                    className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl"
+                                    className="flex-1 min-w-0 px-3 sm:px-4 py-3 border-2 border-gray-200 rounded-xl text-sm sm:text-base"
                                     placeholder="店家名稱"
                                 />
                                 <input
                                     type="number"
                                     value={storeA.count || ''}
                                     onChange={(e) => setStoreA({ ...storeA, count: parseInt(e.target.value) || 0 })}
-                                    className="w-24 px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-xl font-bold"
+                                    className="w-20 sm:w-24 px-2 sm:px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-lg sm:text-xl font-bold"
                                     min={0}
                                 />
-                                <span className="text-gray-500">個</span>
+                                <span className="text-gray-500 text-sm">個</span>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 sm:gap-4">
                                 <input
                                     type="text"
                                     value={storeB.name}
                                     onChange={(e) => setStoreB({ ...storeB, name: e.target.value })}
-                                    className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl"
+                                    className="flex-1 min-w-0 px-3 sm:px-4 py-3 border-2 border-gray-200 rounded-xl text-sm sm:text-base"
                                     placeholder="店家名稱"
                                 />
                                 <input
                                     type="number"
                                     value={storeB.count || ''}
                                     onChange={(e) => setStoreB({ ...storeB, count: parseInt(e.target.value) || 0 })}
-                                    className="w-24 px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-xl font-bold"
+                                    className="w-20 sm:w-24 px-2 sm:px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-lg sm:text-xl font-bold"
                                     min={0}
                                 />
-                                <span className="text-gray-500">個</span>
+                                <span className="text-gray-500 text-sm">個</span>
                             </div>
                         </div>
 
@@ -459,7 +459,7 @@ export default function ExpenseEntryPage() {
 
                         <div className="space-y-3 mb-4">
                             {pettyCashList.map((item, index) => (
-                                <div key={index} className="flex items-center gap-3">
+                                <div key={index} className="flex items-center gap-2 sm:gap-3">
                                     <input
                                         type="text"
                                         value={item.item}
@@ -468,7 +468,7 @@ export default function ExpenseEntryPage() {
                                             newList[index].item = e.target.value;
                                             setPettyCashList(newList);
                                         }}
-                                        className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl"
+                                        className="flex-1 min-w-0 px-3 sm:px-4 py-3 border-2 border-gray-200 rounded-xl text-sm sm:text-base"
                                         placeholder="支出項目"
                                     />
                                     <input
@@ -479,12 +479,12 @@ export default function ExpenseEntryPage() {
                                             newList[index].amount = parseInt(e.target.value) || 0;
                                             setPettyCashList(newList);
                                         }}
-                                        className="w-28 px-4 py-3 border-2 border-gray-200 rounded-xl text-center"
+                                        className="w-24 sm:w-28 px-3 sm:px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-sm sm:text-base"
                                         placeholder="金額"
                                     />
                                     <button
                                         onClick={() => removePettyCash(index)}
-                                        className="w-10 h-10 bg-red-100 text-red-500 rounded-xl hover:bg-red-200"
+                                        className="w-10 h-10 flex-shrink-0 bg-red-100 text-red-500 rounded-xl hover:bg-red-200"
                                     >
                                         ✕
                                     </button>
@@ -577,43 +577,43 @@ export default function ExpenseEntryPage() {
 
             {/* 月份總計 */}
             <div className="mx-4 p-4 bg-white rounded-2xl shadow-sm mb-4">
-                <h3 className="font-bold text-center mb-4">📊 {currentMonth} 月份支出總計</h3>
-                <div className="grid grid-cols-5 gap-2 text-center">
+                <h3 className="font-bold text-center mb-4 text-sm sm:text-base">📊 {currentMonth} 月份支出總計</h3>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
                     <div>
-                        <div className="text-xl font-bold text-blue-600">${lunchTotal}</div>
+                        <div className="text-lg sm:text-xl font-bold text-blue-600">${lunchTotal}</div>
                         <div className="text-xs text-gray-500">便當</div>
                     </div>
                     <div>
-                        <div className="text-xl font-bold text-orange-600">${driverTotal}</div>
+                        <div className="text-lg sm:text-xl font-bold text-orange-600">${driverTotal}</div>
                         <div className="text-xs text-gray-500">駕駛薪資</div>
                     </div>
                     <div>
-                        <div className="text-xl font-bold text-teal-600">${assistantTotal}</div>
+                        <div className="text-lg sm:text-xl font-bold text-teal-600">${assistantTotal}</div>
                         <div className="text-xs text-gray-500">助理工時</div>
                     </div>
                     <div>
-                        <div className="text-xl font-bold text-purple-600">${pettyTotal}</div>
+                        <div className="text-lg sm:text-xl font-bold text-purple-600">${pettyTotal}</div>
                         <div className="text-xs text-gray-500">零用金</div>
                     </div>
-                    <div>
-                        <div className="text-xl font-bold text-red-600">${grandTotal}</div>
+                    <div className="col-span-3 sm:col-span-1 pt-2 sm:pt-0 border-t sm:border-t-0">
+                        <div className="text-lg sm:text-xl font-bold text-red-600">${grandTotal}</div>
                         <div className="text-xs text-gray-500">合計</div>
                     </div>
                 </div>
             </div>
 
             {/* 底部按鈕 */}
-            <div className="fixed bottom-16 left-0 right-0 p-3 bg-white shadow-lg flex gap-3 z-40">
+            <div className="fixed bottom-16 left-0 right-0 p-3 bg-white shadow-lg flex gap-2 sm:gap-3 z-40">
                 <Link
                     href={`/${siteId}`}
-                    className="flex-1 py-4 bg-gray-400 text-white text-center rounded-xl font-bold hover:bg-gray-500 transition"
+                    className="flex-1 py-3 sm:py-4 bg-gray-400 text-white text-center rounded-xl font-bold hover:bg-gray-500 transition text-sm sm:text-base"
                 >
-                    ← 返回首頁
+                    ← 返回
                 </Link>
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex-[2] py-4 bg-green-500 hover:bg-green-600 text-white rounded-xl text-lg font-bold transition disabled:opacity-50"
+                    className="flex-[2] py-3 sm:py-4 bg-green-500 hover:bg-green-600 text-white rounded-xl text-base sm:text-lg font-bold transition disabled:opacity-50"
                 >
                     {isSaving ? '儲存中...' : '💾 儲存支出紀錄'}
                 </button>

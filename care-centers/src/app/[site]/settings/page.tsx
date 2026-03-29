@@ -209,7 +209,7 @@ export default function SettingsPage() {
                     ➕ 新增長者
                 </div>
                 <div className="p-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
                             <input
@@ -256,7 +256,7 @@ export default function SettingsPage() {
                             </select>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">司機車資</label>
                             <input
@@ -278,8 +278,8 @@ export default function SettingsPage() {
                             />
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="md:col-span-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="sm:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">家屬 LINE ID</label>
                             <input
                                 type="text"
@@ -343,8 +343,8 @@ export default function SettingsPage() {
                     ) : elders.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">尚無資料</div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
+                        <div className="overflow-x-auto -mx-4 px-4">
+                            <table className="w-full min-w-[800px]">
                                 <thead>
                                     <tr className="bg-gray-50 text-left text-sm text-gray-600">
                                         <th className="px-2 py-3 font-medium w-10">
@@ -355,15 +355,15 @@ export default function SettingsPage() {
                                                 onChange={toggleSelectAll}
                                             />
                                         </th>
-                                        <th className="px-4 py-3 font-medium">姓名</th>
-                                        <th className="px-4 py-3 font-medium">分級</th>
-                                        <th className="px-4 py-3 font-medium">身份類別</th>
-                                        <th className="px-4 py-3 font-medium">補助/自費</th>
-                                        <th className="px-4 py-3 font-medium">車資</th>
-                                        <th className="px-4 py-3 font-medium">月額度</th>
-                                        <th className="px-4 py-3 font-medium">家屬 LINE</th>
-                                        <th className="px-4 py-3 font-medium">備註</th>
-                                        <th className="px-4 py-3 font-medium">操作</th>
+                                        <th className="px-3 py-3 font-medium">姓名</th>
+                                        <th className="px-3 py-3 font-medium">分級</th>
+                                        <th className="px-3 py-3 font-medium">身份類別</th>
+                                        <th className="px-3 py-3 font-medium">補助/自費</th>
+                                        <th className="px-3 py-3 font-medium">車資</th>
+                                        <th className="px-3 py-3 font-medium">月額度</th>
+                                        <th className="px-3 py-3 font-medium">家屬 LINE</th>
+                                        <th className="px-3 py-3 font-medium">備註</th>
+                                        <th className="px-3 py-3 font-medium">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -380,39 +380,39 @@ export default function SettingsPage() {
                                                         onChange={() => toggleSelectForDelete(elder.name)}
                                                     />
                                                 </td>
-                                                <td className="px-4 py-3 font-medium">{elder.name}</td>
-                                                <td className="px-4 py-3">
+                                                <td className="px-3 py-3 font-medium whitespace-nowrap">{elder.name}</td>
+                                                <td className="px-3 py-3">
                                                     <span
-                                                        className="px-2 py-1 rounded-full text-white text-xs font-medium"
+                                                        className="px-2 py-1 rounded-full text-white text-xs font-medium whitespace-nowrap"
                                                         style={{ backgroundColor: info.color }}
                                                     >
                                                         {elder.level}-{info.desc}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3">
+                                                <td className="px-3 py-3">
                                                     <span
-                                                        className="px-2 py-1 rounded-full text-white text-xs font-medium"
+                                                        className="px-2 py-1 rounded-full text-white text-xs font-medium whitespace-nowrap"
                                                         style={{ backgroundColor: identityInfo.color }}
                                                     >
                                                         {elder.identityDesc || identityInfo.desc}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${elder.subsidyType === 'self'
+                                                <td className="px-3 py-3">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${elder.subsidyType === 'self'
                                                         ? 'bg-yellow-400 text-gray-800'
                                                         : 'bg-green-500 text-white'
                                                         }`}>
                                                         {elder.subsidyType === 'self' ? '自費' : '補助'}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 font-medium">
+                                                <td className="px-3 py-3 font-medium whitespace-nowrap">
                                                     {elder.customFare ? (
                                                         <span className="text-blue-600">${elder.customFare}</span>
                                                     ) : (
                                                         <span>${elder.fare !== undefined ? elder.fare : identityInfo.fare}</span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3">
+                                                <td className="px-3 py-3 whitespace-nowrap">
                                                     {elder.monthlyQuota ? (
                                                         <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">
                                                             ${elder.monthlyQuota.toLocaleString()}
@@ -421,24 +421,24 @@ export default function SettingsPage() {
                                                         <span className="text-gray-400">不限</span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3">
+                                                <td className="px-3 py-3">
                                                     {elder.familyLineId && elder.familyLineId.trim() ? (
                                                         <span className="bg-green-500 text-white px-2 py-1 rounded text-xs">✓</span>
                                                     ) : (
                                                         <span className="text-gray-400">-</span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3 text-gray-500 text-sm">{elder.notes || '-'}</td>
-                                                <td className="px-4 py-3">
+                                                <td className="px-3 py-3 text-gray-500 text-sm max-w-[120px] truncate">{elder.notes || '-'}</td>
+                                                <td className="px-3 py-3">
                                                     <div className="flex gap-2">
                                                         <button
-                                                            className="text-blue-500 hover:text-blue-700"
+                                                            className="text-blue-500 hover:text-blue-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
                                                             onClick={() => handleEditElder(elder)}
                                                         >
                                                             ✏️
                                                         </button>
                                                         <button
-                                                            className="text-red-500 hover:text-red-700"
+                                                            className="text-red-500 hover:text-red-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
                                                             onClick={() => handleDeleteElder(elder.name)}
                                                         >
                                                             🗑️

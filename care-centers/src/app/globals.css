@@ -383,3 +383,62 @@ tbody tr:hover {
   filter: brightness(0.92);
   box-shadow: var(--shadow-md);
 }
+
+/* ======================================
+   Mobile-First Responsive Utilities
+   ====================================== */
+
+/* 手機安全區域（Safe Area for notch/home indicator） */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .fixed.bottom-0,
+  .fixed.bottom-16 {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* 手機上避免文字過大溢出 */
+@media (max-width: 640px) {
+  .input,
+  input,
+  select,
+  textarea {
+    font-size: 16px !important; /* 防止 iOS 自動放大 */
+  }
+
+  /* 表格在手機上更緊湊 */
+  table th,
+  table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  /* 固定底部按鈕安全距離 */
+  .fixed.bottom-16 {
+    bottom: 56px;
+  }
+}
+
+/* 確保可觸控元素的最小尺寸 */
+button,
+a,
+select,
+[role="button"] {
+  min-height: 44px;
+}
+
+/* 可觸控的 checkbox / radio 放大點擊區域 */
+input[type="checkbox"],
+input[type="radio"] {
+  min-width: 20px;
+  min-height: 20px;
+}
+
+/* 平板橫向的表格不需要滾動 */
+@media (min-width: 768px) {
+  .overflow-x-auto {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}

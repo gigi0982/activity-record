@@ -148,7 +148,7 @@ export default function HealthPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-4 pb-24">
+        <div className="max-w-4xl mx-auto p-3 sm:p-4 pb-24">
             <div className="flex items-center gap-2.5 mb-6">
                 <Heart className="w-6 h-6" style={{ color: 'var(--danger)' }} />
                 <h1 className="text-xl font-bold" style={{ color: 'var(--foreground)' }}>健康紀錄</h1>
@@ -175,7 +175,7 @@ export default function HealthPage() {
                     <Activity className="w-4 h-4" style={{ color: 'var(--primary)' }} />
                     <h2 className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>{todayStr} 紀錄</h2>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                     <div>
                         <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>收縮壓</label>
                         <div className="flex items-center gap-2">
@@ -367,8 +367,8 @@ export default function HealthPage() {
                 {records.length === 0 ? (
                     <div className="p-8 text-center text-sm" style={{ color: 'var(--muted)' }}>尚無紀錄</div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                    <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                        <table className="w-full text-sm min-w-[480px]">
                             <thead>
                                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                                     <th className="px-4 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>日期</th>

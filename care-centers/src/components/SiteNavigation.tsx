@@ -107,7 +107,7 @@ export default function SiteNavigation({ siteName, siteColor }: SiteNavigationPr
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className="relative flex flex-col items-center py-2.5 px-4 transition-all duration-200 cursor-pointer min-w-[64px]"
+                                className="relative flex flex-col items-center py-2 sm:py-2.5 px-2 sm:px-4 transition-all duration-200 cursor-pointer min-w-[52px] sm:min-w-[64px] min-h-[48px]"
                                 style={{ color: isActive ? siteColor : 'var(--muted)' }}
                             >
                                 {/* 頂部指示條 */}
@@ -118,7 +118,7 @@ export default function SiteNavigation({ siteName, siteColor }: SiteNavigationPr
                                     />
                                 )}
                                 <IconComponent className={`w-5 h-5 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
-                                <span className={`text-xs mt-1 ${isActive ? 'font-bold' : 'font-medium'}`}>
+                                <span className={`text-[10px] sm:text-xs mt-1 ${isActive ? 'font-bold' : 'font-medium'}`}>
                                     {item.label}
                                 </span>
                             </Link>

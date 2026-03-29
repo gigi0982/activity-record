@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { financeRecordApi, FinanceRecordItem, BudgetItem, ReimbursementItem } from '@/lib/api';
 import { SITES } from '@/config/sites';
-import { ArrowLeft, Plus, Trash2, Copy, DollarSign, TrendingUp, TrendingDown, FileText, PiggyBank, RefreshCw, Lock, LogOut } from 'lucide-react';
+import { Plus, Trash2, Copy, DollarSign, TrendingUp, TrendingDown, FileText, PiggyBank, RefreshCw, Lock, LogOut } from 'lucide-react';
 
 // ===== 管理帳號密碼（全據點共用） =====
 const FINANCE_ACCOUNT = 'gigi0982';
@@ -115,10 +115,14 @@ function LoginScreen({ siteId, siteName, onLogin }: { siteId: string; siteName: 
     );
 }
 
+// 有 sheetId 的據點（排除 young 等尚未配置的）
+const FINANCE_SITES = Object.values(SITES).filter(s => s.sheetId);
+
 // ========================================
 // 主內容元件（已登入才渲染）
 // ========================================
-function FinanceContent({ siteId, siteName, onLogout }: { siteId: string; siteName: string; onLogout: () => void }) {
+function FinanceContent({ siteId, onLogout }: { siteId: string; onLogout: () => void }) {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<TabType>('expense');
     const [selectedMonth, setSelectedMonth] = useState(() => {
         const now = new Date();
@@ -336,21 +340,41 @@ function FinanceContent({ siteId, siteName, onLogout }: { siteId: string; siteNa
         <div className="min-h-screen bg-gray-50 pb-8">
             {/* Header */}
             <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-3">
-                <div className="max-w-2xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <Link href={`/${siteId}`} className="text-white/80 hover:text-white">
-                            <ArrowLeft className="w-5 h-5" />
-                        </Link>
-                        <DollarSign className="w-5 h-5" />
-                        <h1 className="text-lg font-bold">{siteName} 收支管理</h1>
+                <div className="max-w-2xl mx-auto">
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <DollarSign className="w-5 h-5" />
+                            <h1 className="text-lg font-bold">收支管理</h1>
+                        </div>
+                        <button
+                            onClick={onLogout}
+                            className="flex items-center gap-1 text-white/70 hover:text-white text-xs bg-white/15 hover:bg-white/25 px-2.5 py-1.5 rounded-lg transition"
+                        >
+                            <LogOut className="w-3.5 h-3.5" />
+                            登出
+                        </button>
                     </div>
-                    <button
-                        onClick={onLogout}
-                        className="flex items-center gap-1 text-white/70 hover:text-white text-xs bg-white/15 hover:bg-white/25 px-2.5 py-1.5 rounded-lg transition"
-                    >
-                        <LogOut className="w-3.5 h-3.5" />
-                        登出
-                    </button>
+                    {/* 據點快速切換 */}
+                    <div className="flex gap-1.5 mt-2.5 overflow-x-auto pb-0.5">
+                        {FINANCE_SITES.map(site => (
+                            <button
+                                key={site.id}
+                                onClick={() => {
+                                    if (site.id !== siteId) {
+                                        router.push(`/${site.id}/finance`);
+                                    }
+                                }}
+                                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                                    site.id === siteId
+                                        ? 'bg-white text-emerald-700 shadow-sm'
+                                        : 'bg-white/20 text-white/90 hover:bg-white/30'
+                                }`}
+                            >
+                                <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: site.color }} />
+                                {site.name.replace('樂智據點', '')}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -858,5 +882,5 @@ export default function FinanceManagementPage() {
         return <LoginScreen siteId={siteId} siteName={siteName} onLogin={() => setIsAuthed(true)} />;
     }
 
-    return <FinanceContent siteId={siteId} siteName={siteName} onLogout={handleLogout} />;
+    return <FinanceContent siteId={siteId} onLogout={handleLogout} />;
 }

@@ -145,6 +145,20 @@ function doPost(e) {
         result = testSendLineToSpecificUser(data);
         break;
       
+      // ========== 收支管理 ==========
+      case 'addFinanceRecord':
+        result = addFinanceRecord(data);
+        break;
+      case 'copyLastMonthExpenses':
+        result = copyLastMonthExpenses(data.siteId, data.targetMonth, data.createdBy);
+        break;
+      case 'saveAnnualBudget':
+        result = saveAnnualBudget(data);
+        break;
+      case 'addReimbursement':
+        result = addReimbursement(data);
+        break;
+      
       default:
         result = addActivity(data);
     }
@@ -475,6 +489,25 @@ function doGet(e) {
       case 'getEldersWithFamily':
         const familySiteId = e.parameter.siteId || '';
         return ContentService.createTextOutput(JSON.stringify(getEldersWithFamily(familySiteId)))
+          .setMimeType(ContentService.MimeType.JSON);
+      
+      // ========== 收支管理 ==========
+      case 'getFinanceRecords':
+        const finSiteId = e.parameter.siteId || '';
+        const finMonth = e.parameter.month || '';
+        return ContentService.createTextOutput(JSON.stringify(getFinanceRecords(finSiteId, finMonth)))
+          .setMimeType(ContentService.MimeType.JSON);
+      
+      case 'getAnnualBudget':
+        const budgetSiteId = e.parameter.siteId || '';
+        const budgetYear = e.parameter.year || '';
+        return ContentService.createTextOutput(JSON.stringify(getAnnualBudget(budgetSiteId, budgetYear)))
+          .setMimeType(ContentService.MimeType.JSON);
+      
+      case 'deleteFinanceRecord':
+        const delFinSiteId = e.parameter.siteId || '';
+        const delFinId = e.parameter.recordId || '';
+        return ContentService.createTextOutput(JSON.stringify(deleteFinanceRecord(delFinSiteId, delFinId)))
           .setMimeType(ContentService.MimeType.JSON);
       
       default:
@@ -3627,4 +3660,267 @@ function testSendLineToSpecificUser(data) {
   }
   
   return result;
+}
+
+// ===================================================
+// 收支管理（流水帳 + 年度預算核銷）
+// ===================================================
+
+/**
+ * 取得財務紀錄
+ * @param {string} siteId - 據點ID
+ * @param {string} month - 月份 (YYYY-MM)，選填
+ */
+function getFinanceRecords(siteId, month) {
+  var ss = getSpreadsheetBySiteId(siteId);
+  var sheet = ss.getSheetByName('收支紀錄');
+  if (!sheet) return [];
+  
+  var data = sheet.getDataRange().getValues();
+  var records = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0]) continue;
+    
+    var rowDate = row[1];
+    if (rowDate instanceof Date) {
+      var y = rowDate.getFullYear();
+      var m = String(rowDate.getMonth() + 1).padStart(2, '0');
+      var d = String(rowDate.getDate()).padStart(2, '0');
+      rowDate = y + '-' + m + '-' + d;
+    } else {
+      rowDate = String(rowDate).trim();
+    }
+    
+    // 月份過濾
+    if (month && !rowDate.startsWith(month)) continue;
+    
+    records.push({
+      id: 'fin_' + i,
+      siteId: String(row[0]).trim(),
+      date: rowDate,
+      type: String(row[2]).trim(),         // expense | income
+      category: String(row[3]).trim(),     // 薪資、房租、水電...
+      description: String(row[4]).trim(),
+      amount: Number(row[5]) || 0,
+      createdBy: String(row[6]).trim(),
+      createdAt: String(row[7]).trim()
+    });
+  }
+  
+  return records;
+}
+
+/**
+ * 新增財務紀錄
+ */
+function addFinanceRecord(data) {
+  var siteId = data.siteId || '';
+  var ss = getSpreadsheetBySiteId(siteId);
+  var sheet = ss.getSheetByName('收支紀錄');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('收支紀錄');
+    sheet.appendRow(['據點', '日期', '類型', '分類', '說明', '金額', '建立者', '建立時間']);
+  }
+  
+  sheet.appendRow([
+    siteId,
+    data.date || new Date().toISOString().split('T')[0],
+    data.type || 'expense',
+    data.category || '',
+    data.description || '',
+    Number(data.amount) || 0,
+    data.createdBy || '',
+    new Date().toISOString()
+  ]);
+  
+  return { success: true, message: '紀錄已新增' };
+}
+
+/**
+ * 刪除財務紀錄
+ */
+function deleteFinanceRecord(siteId, recordId) {
+  var ss = getSpreadsheetBySiteId(siteId);
+  var sheet = ss.getSheetByName('收支紀錄');
+  if (!sheet) return { success: false, message: '找不到收支紀錄' };
+  
+  var idx = parseInt(String(recordId).replace('fin_', ''));
+  if (isNaN(idx) || idx < 1) return { success: false, message: '無效的紀錄ID' };
+  
+  sheet.deleteRow(idx + 1);
+  return { success: true, message: '紀錄已刪除' };
+}
+
+/**
+ * 複製上月支出（固定支出項目）
+ */
+function copyLastMonthExpenses(siteId, targetMonth, createdBy) {
+  var ss = getSpreadsheetBySiteId(siteId);
+  var sheet = ss.getSheetByName('收支紀錄');
+  if (!sheet) return { success: false, message: '找不到收支紀錄', count: 0 };
+  
+  // 計算上月
+  var parts = targetMonth.split('-');
+  var year = parseInt(parts[0]);
+  var mon = parseInt(parts[1]);
+  var prevMon = mon - 1;
+  var prevYear = year;
+  if (prevMon < 1) { prevMon = 12; prevYear--; }
+  var lastMonth = prevYear + '-' + String(prevMon).padStart(2, '0');
+  
+  var data = sheet.getDataRange().getValues();
+  var copiedCount = 0;
+  var now = new Date().toISOString();
+  
+  // 固定支出分類（可複製的項目）
+  var fixedCategories = ['員工薪資', '房租', '水電費', '網路費', '保險費', '清潔費'];
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (String(row[0]).trim() !== siteId) continue;
+    if (String(row[2]).trim() !== 'expense') continue;
+    
+    var rowDate = row[1];
+    if (rowDate instanceof Date) {
+      rowDate = rowDate.getFullYear() + '-' + String(rowDate.getMonth() + 1).padStart(2, '0');
+    } else {
+      rowDate = String(rowDate).trim().substring(0, 7);
+    }
+    
+    if (rowDate !== lastMonth) continue;
+    
+    var cat = String(row[3]).trim();
+    if (fixedCategories.indexOf(cat) === -1) continue;
+    
+    // 複製到目標月份（日期用目標月的1號）
+    sheet.appendRow([
+      siteId,
+      targetMonth + '-01',
+      'expense',
+      cat,
+      String(row[4]).trim(),
+      Number(row[5]) || 0,
+      createdBy || '',
+      now
+    ]);
+    copiedCount++;
+  }
+  
+  return { success: true, message: '已複製 ' + copiedCount + ' 筆固定支出', count: copiedCount };
+}
+
+/**
+ * 取得年度預算（核定金額與核銷紀錄）
+ */
+function getAnnualBudget(siteId, year) {
+  var ss = getSpreadsheetBySiteId(siteId);
+  var sheet = ss.getSheetByName('年度預算');
+  if (!sheet) return { budgets: [], reimbursements: [] };
+  
+  var data = sheet.getDataRange().getValues();
+  var budgets = [];
+  var reimbursements = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0]) continue;
+    var rowType = String(row[0]).trim();
+    var rowYear = String(row[1]).trim();
+    
+    if (year && rowYear !== String(year)) continue;
+    
+    if (rowType === 'budget') {
+      budgets.push({
+        id: 'bgt_' + i,
+        year: rowYear,
+        category: String(row[2]).trim(),
+        approvedAmount: Number(row[3]) || 0,
+        description: String(row[4]).trim()
+      });
+    } else if (rowType === 'reimburse') {
+      reimbursements.push({
+        id: 'rmb_' + i,
+        year: rowYear,
+        category: String(row[2]).trim(),
+        amount: Number(row[3]) || 0,
+        description: String(row[4]).trim(),
+        date: String(row[5]).trim(),
+        createdBy: String(row[6]).trim(),
+        createdAt: String(row[7]).trim()
+      });
+    }
+  }
+  
+  return { budgets: budgets, reimbursements: reimbursements };
+}
+
+/**
+ * 儲存年度預算核定金額
+ */
+function saveAnnualBudget(data) {
+  var siteId = data.siteId || '';
+  var ss = getSpreadsheetBySiteId(siteId);
+  var sheet = ss.getSheetByName('年度預算');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('年度預算');
+    sheet.appendRow(['類型', '年度', '分類', '金額', '說明', '日期', '建立者', '建立時間']);
+  }
+  
+  // 檢查是否已有此年度此分類的預算
+  var allData = sheet.getDataRange().getValues();
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][0]).trim() === 'budget' &&
+        String(allData[i][1]).trim() === String(data.year) &&
+        String(allData[i][2]).trim() === String(data.category)) {
+      // 更新既有預算
+      sheet.getRange(i + 1, 4).setValue(Number(data.approvedAmount) || 0);
+      sheet.getRange(i + 1, 5).setValue(data.description || '');
+      return { success: true, message: '預算已更新' };
+    }
+  }
+  
+  // 新增預算
+  sheet.appendRow([
+    'budget',
+    data.year || new Date().getFullYear(),
+    data.category || '',
+    Number(data.approvedAmount) || 0,
+    data.description || '',
+    '',
+    data.createdBy || '',
+    new Date().toISOString()
+  ]);
+  
+  return { success: true, message: '預算已新增' };
+}
+
+/**
+ * 新增核銷紀錄
+ */
+function addReimbursement(data) {
+  var siteId = data.siteId || '';
+  var ss = getSpreadsheetBySiteId(siteId);
+  var sheet = ss.getSheetByName('年度預算');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('年度預算');
+    sheet.appendRow(['類型', '年度', '分類', '金額', '說明', '日期', '建立者', '建立時間']);
+  }
+  
+  sheet.appendRow([
+    'reimburse',
+    data.year || new Date().getFullYear(),
+    data.category || '',
+    Number(data.amount) || 0,
+    data.description || '',
+    data.date || new Date().toISOString().split('T')[0],
+    data.createdBy || '',
+    new Date().toISOString()
+  ]);
+  
+  return { success: true, message: '核銷紀錄已新增' };
 }

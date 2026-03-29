@@ -532,6 +532,75 @@ export const expenseApi = {
     },
 };
 
+// ===================================================
+// 收支管理 API
+// ===================================================
+
+export interface FinanceRecordItem {
+    id: string;
+    siteId: string;
+    date: string;
+    type: 'expense' | 'income';
+    category: string;
+    description: string;
+    amount: number;
+    createdBy: string;
+    createdAt: string;
+}
+
+export interface BudgetItem {
+    id: string;
+    year: string;
+    category: string;
+    approvedAmount: number;
+    description: string;
+}
+
+export interface ReimbursementItem {
+    id: string;
+    year: string;
+    category: string;
+    amount: number;
+    description: string;
+    date: string;
+    createdBy: string;
+    createdAt: string;
+}
+
+export const financeRecordApi = {
+    async getRecords(siteId: string, month?: string): Promise<FinanceRecordItem[]> {
+        const params: Record<string, string> = { siteId };
+        if (month) params.month = month;
+        return api.getFromGoogleScript<FinanceRecordItem[]>('getFinanceRecords', params);
+    },
+
+    async addRecord(data: Partial<FinanceRecordItem>): Promise<{ success: boolean; message: string }> {
+        return api.postToGoogleScriptWithResult<{ success: boolean; message: string }>('addFinanceRecord', data);
+    },
+
+    async deleteRecord(siteId: string, recordId: string): Promise<{ success: boolean; message: string }> {
+        return api.getFromGoogleScript<{ success: boolean; message: string }>('deleteFinanceRecord', { siteId, recordId });
+    },
+
+    async copyLastMonth(siteId: string, targetMonth: string, createdBy: string): Promise<{ success: boolean; message: string; count: number }> {
+        return api.postToGoogleScriptWithResult<{ success: boolean; message: string; count: number }>('copyLastMonthExpenses', { siteId, targetMonth, createdBy });
+    },
+
+    async getBudget(siteId: string, year?: string): Promise<{ budgets: BudgetItem[]; reimbursements: ReimbursementItem[] }> {
+        const params: Record<string, string> = { siteId };
+        if (year) params.year = year;
+        return api.getFromGoogleScript<{ budgets: BudgetItem[]; reimbursements: ReimbursementItem[] }>('getAnnualBudget', params);
+    },
+
+    async saveBudget(data: { siteId: string; year: string; category: string; approvedAmount: number; description?: string; createdBy?: string }): Promise<{ success: boolean; message: string }> {
+        return api.postToGoogleScriptWithResult<{ success: boolean; message: string }>('saveAnnualBudget', data);
+    },
+
+    async addReimbursement(data: { siteId: string; year: string; category: string; amount: number; description: string; date: string; createdBy?: string }): Promise<{ success: boolean; message: string }> {
+        return api.postToGoogleScriptWithResult<{ success: boolean; message: string }>('addReimbursement', data);
+    },
+};
+
 // 健康紀錄 API
 export interface HealthRecord {
     elderName: string;

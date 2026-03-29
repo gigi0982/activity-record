@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { ROLE_CONFIG } from '@/types/user';
-import { Home, PenSquare, FilePlus, BarChart3, Settings, Users, Wallet } from 'lucide-react';
+import { Home, PenSquare, FilePlus, BarChart3, Settings, Users, Wallet, Bell } from 'lucide-react';
 
 interface SiteNavigationProps {
     siteName: string;
@@ -29,6 +29,7 @@ export default function SiteNavigation({ siteName, siteColor }: SiteNavigationPr
         { href: `/${siteId}/quick`, label: '快速登記', icon: PenSquare },
         { href: `/${siteId}/activity/new`, label: '新增活動', icon: FilePlus },
         { href: `/${siteId}/fees`, label: '報表', icon: BarChart3 },
+        { href: `/${siteId}/line-settings`, label: 'LINE', icon: Bell },
         { href: `/${siteId}/settings`, label: '設定', icon: Settings },
     ];
 

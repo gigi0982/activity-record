@@ -123,6 +123,28 @@ function doPost(e) {
         result = saveHealthRecords(data);
         break;
       
+      // ========== 司機設定管理 ==========
+      case 'addDriver':
+        result = addDriver(data);
+        break;
+      case 'updateDriver':
+        result = updateDriverSetting(data);
+        break;
+      case 'deleteDriver':
+        result = deleteDriverSetting(data.name);
+        break;
+      
+      // ========== LINE 測試發送 ==========
+      case 'testSendDriverFlex':
+        result = testSendDriverFlexCard();
+        break;
+      case 'testSendBPFlex':
+        result = testSendBPFlexCard();
+        break;
+      case 'testSendLineToUser':
+        result = testSendLineToSpecificUser(data);
+        break;
+      
       default:
         result = addActivity(data);
     }
@@ -436,6 +458,22 @@ function doGet(e) {
       
       case 'getAllHealth':
         return ContentService.createTextOutput(JSON.stringify(getAllHealth()))
+          .setMimeType(ContentService.MimeType.JSON);
+      
+      // ========== 司機設定 ==========
+      case 'getDrivers':
+        return ContentService.createTextOutput(JSON.stringify(getDriverSettings()))
+          .setMimeType(ContentService.MimeType.JSON);
+      
+      // ========== LINE 用戶紀錄 ==========
+      case 'getLineUsers':
+        return ContentService.createTextOutput(JSON.stringify(getLineUsers()))
+          .setMimeType(ContentService.MimeType.JSON);
+      
+      // ========== 長者 LINE 快查 ==========
+      case 'getEldersWithFamily':
+        const familySiteId = e.parameter.siteId || '';
+        return ContentService.createTextOutput(JSON.stringify(getEldersWithFamily(familySiteId)))
           .setMimeType(ContentService.MimeType.JSON);
       
       default:
@@ -3423,3 +3461,145 @@ function doPostLineWebhook(e) {
   }
 }
 
+// ===================================================
+// 司機設定 CRUD（前端管理用）
+// ===================================================
+
+/**
+ * 新增司機
+ */
+function addDriver(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('司機設定');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('司機設定');
+    sheet.appendRow(['司機姓名', 'LINE User ID', '服務據點', '啟用通知', '備註']);
+  }
+  
+  // 檢查是否已存在
+  var allData = sheet.getDataRange().getValues();
+  for (var i = 1; i < allData.length; i++) {
+    if (allData[i][0] === data.name) {
+      return { success: false, message: '此司機已存在' };
+    }
+  }
+  
+  sheet.appendRow([
+    data.name || '',
+    data.lineUserId || '',
+    data.siteId || 'all',
+    data.enabled !== false ? '是' : '否',
+    data.notes || ''
+  ]);
+  
+  return { success: true, message: '司機已新增' };
+}
+
+/**
+ * 更新司機設定
+ */
+function updateDriverSetting(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('司機設定');
+  if (!sheet) return { success: false, message: '找不到司機設定工作表' };
+  
+  var allData = sheet.getDataRange().getValues();
+  for (var i = 1; i < allData.length; i++) {
+    if (allData[i][0] === data.originalName || allData[i][0] === data.name) {
+      var row = i + 1;
+      sheet.getRange(row, 1).setValue(data.name || '');
+      sheet.getRange(row, 2).setValue(data.lineUserId || '');
+      sheet.getRange(row, 3).setValue(data.siteId || 'all');
+      sheet.getRange(row, 4).setValue(data.enabled !== false ? '是' : '否');
+      sheet.getRange(row, 5).setValue(data.notes || '');
+      return { success: true, message: '司機已更新' };
+    }
+  }
+  return { success: false, message: '找不到該司機' };
+}
+
+/**
+ * 刪除司機
+ */
+function deleteDriverSetting(name) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('司機設定');
+  if (!sheet) return { success: false, message: '找不到司機設定工作表' };
+  
+  var allData = sheet.getDataRange().getValues();
+  for (var i = 1; i < allData.length; i++) {
+    if (allData[i][0] === name) {
+      sheet.deleteRow(i + 1);
+      return { success: true, message: '司機已刪除' };
+    }
+  }
+  return { success: false, message: '找不到該司機' };
+}
+
+/**
+ * 取得 LINE 用戶紀錄（Webhook 自動記錄的）
+ */
+function getLineUsers() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('LINE用戶');
+  if (!sheet) return [];
+  
+  var data = sheet.getDataRange().getValues();
+  var users = [];
+  for (var i = 1; i < data.length; i++) {
+    if (!data[i][1]) continue;
+    users.push({
+      time: data[i][0] ? new Date(data[i][0]).toISOString() : '',
+      userId: String(data[i][1]).trim(),
+      message: String(data[i][2] || ''),
+      processed: String(data[i][3] || '否')
+    });
+  }
+  // 按時間倒序
+  users.sort(function(a, b) { return String(b.time).localeCompare(String(a.time)); });
+  return users;
+}
+
+/**
+ * 取得有家屬 LINE ID 的長者列表
+ */
+function getEldersWithFamily(siteId) {
+  var ss = siteId ? getSpreadsheetBySiteId(siteId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('長者名單');
+  if (!sheet) return [];
+  
+  var data = sheet.getDataRange().getValues();
+  var results = [];
+  for (var i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    results.push({
+      name: data[i][0],
+      familyLineId: data[i][9] ? String(data[i][9]).trim() : '',
+      level: data[i][1] || 'A'
+    });
+  }
+  return results;
+}
+
+/**
+ * 發送測試訊息到指定 User ID
+ */
+function testSendLineToSpecificUser(data) {
+  var userId = data.userId;
+  var botType = data.botType || 'driver'; // 'driver' 或 'health'
+  var message = data.message || '🔔 測試訊息\n\n這是來自照護據點系統的測試訊息。\n如果您收到此訊息，表示 LINE 通知設定成功！';
+  
+  if (!userId || !userId.startsWith('U')) {
+    return { success: false, message: 'User ID 格式不正確（應以 U 開頭）' };
+  }
+  
+  var result;
+  if (botType === 'health') {
+    result = sendLineBPMessage(userId, message);
+  } else {
+    result = sendLineMessage(userId, message);
+  }
+  
+  return result;
+}

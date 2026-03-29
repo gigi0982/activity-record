@@ -578,3 +578,96 @@ export const scheduleApi = {
         return api.postToGoogleScript('saveSchedule', data);
     },
 };
+
+// ===================================================
+// 司機設定 API
+// ===================================================
+
+export interface DriverSetting {
+    name: string;
+    lineUserId: string;
+    siteId: string;
+    enabled: boolean;
+    notes?: string;
+}
+
+export interface LineUserRecord {
+    time: string;
+    userId: string;
+    message: string;
+    processed: string;
+}
+
+export interface ElderFamily {
+    name: string;
+    familyLineId: string;
+    level: string;
+}
+
+export const driverApi = {
+    // 取得所有司機
+    async getDrivers(): Promise<DriverSetting[]> {
+        try {
+            const result = await api.getFromGoogleScript<unknown>('getDrivers', {});
+            return Array.isArray(result) ? (result as DriverSetting[]) : [];
+        } catch {
+            return [];
+        }
+    },
+
+    // 新增司機
+    async addDriver(data: { name: string; lineUserId: string; siteId: string; enabled?: boolean; notes?: string }): Promise<{ success: boolean; message?: string }> {
+        try {
+            return await api.postToGoogleScriptWithResult<{ success: boolean; message?: string }>('addDriver', data);
+        } catch {
+            return { success: false, message: '新增失敗' };
+        }
+    },
+
+    // 更新司機
+    async updateDriver(data: { originalName: string; name: string; lineUserId: string; siteId: string; enabled?: boolean; notes?: string }): Promise<{ success: boolean; message?: string }> {
+        try {
+            return await api.postToGoogleScriptWithResult<{ success: boolean; message?: string }>('updateDriver', data);
+        } catch {
+            return { success: false, message: '更新失敗' };
+        }
+    },
+
+    // 刪除司機
+    async deleteDriver(name: string): Promise<{ success: boolean; message?: string }> {
+        try {
+            return await api.postToGoogleScriptWithResult<{ success: boolean; message?: string }>('deleteDriver', { name });
+        } catch {
+            return { success: false, message: '刪除失敗' };
+        }
+    },
+
+    // 取得 LINE 用戶紀錄
+    async getLineUsers(): Promise<LineUserRecord[]> {
+        try {
+            const result = await api.getFromGoogleScript<unknown>('getLineUsers', {});
+            return Array.isArray(result) ? (result as LineUserRecord[]) : [];
+        } catch {
+            return [];
+        }
+    },
+
+    // 取得長者家屬 LINE 列表
+    async getEldersWithFamily(siteId: string): Promise<ElderFamily[]> {
+        try {
+            const result = await api.getFromGoogleScript<unknown>('getEldersWithFamily', { siteId });
+            return Array.isArray(result) ? (result as ElderFamily[]) : [];
+        } catch {
+            return [];
+        }
+    },
+
+    // 發送測試訊息
+    async testSendLine(userId: string, botType: 'driver' | 'health', message?: string): Promise<{ success: boolean; message?: string; error?: string }> {
+        try {
+            return await api.postToGoogleScriptWithResult<{ success: boolean; message?: string; error?: string }>('testSendLineToUser', { userId, botType, message });
+        } catch {
+            return { success: false, message: '發送失敗' };
+        }
+    },
+};

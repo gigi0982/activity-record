@@ -823,16 +823,19 @@ export default function FinanceManagementPage() {
     const siteId = params.site as string;
     const siteName = SITES[siteId]?.name || siteId;
 
-    const [isAuthed, setIsAuthed] = useState(() => {
-        try {
-            return sessionStorage.getItem(SESSION_KEY) === 'true';
-        } catch { return false; }
-    });
+    const [isAuthed, setIsAuthed] = useState(false);
     const [mounted, setMounted] = useState(false);
 
-    // 只是標記 client side 已掛載，避免 SSR hydration 差異
+    // client side 掛載後從 sessionStorage 讀取登入狀態
     useEffect(() => {
-        const timer = requestAnimationFrame(() => setMounted(true));
+        const timer = requestAnimationFrame(() => {
+            try {
+                if (sessionStorage.getItem(SESSION_KEY) === 'true') {
+                    setIsAuthed(true);
+                }
+            } catch { /* SSR safe */ }
+            setMounted(true);
+        });
         return () => cancelAnimationFrame(timer);
     }, []);
 

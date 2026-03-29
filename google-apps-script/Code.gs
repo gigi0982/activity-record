@@ -462,7 +462,8 @@ function doGet(e) {
       
       // ========== 司機設定 ==========
       case 'getDrivers':
-        return ContentService.createTextOutput(JSON.stringify(getDriverSettings()))
+        const driverFilterSiteId = e.parameter.siteId || '';
+        return ContentService.createTextOutput(JSON.stringify(getDriverSettings(driverFilterSiteId)))
           .setMimeType(ContentService.MimeType.JSON);
       
       // ========== LINE 用戶紀錄 ==========
@@ -2531,9 +2532,10 @@ function testSendBPFlexCard() {
 }
 
 /**
- * 取得司機設定列表
+ * 取得司機設定列表（支援據點過濾）
+ * @param {string} filterSiteId - 據點 ID，空字串或 'all' 表示取全部
  */
-function getDriverSettings() {
+function getDriverSettings(filterSiteId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('司機設定');
   
@@ -2544,13 +2546,21 @@ function getDriverSettings() {
   
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (!row[0] || !row[1]) continue; // 需要姓名和 LINE User ID
+    if (!row[0]) continue; // 需要姓名
+    
+    const driverSiteId = row[2] || 'all';
+    
+    // 如果指定了據點過濾，只顯示該據點或 all 的司機
+    if (filterSiteId && filterSiteId !== '' && filterSiteId !== 'all') {
+      if (driverSiteId !== filterSiteId && driverSiteId !== 'all') continue;
+    }
     
     drivers.push({
       name: row[0],
-      lineUserId: row[1],
-      siteId: row[2] || 'all',
-      enabled: row[3] !== '否'
+      lineUserId: row[1] || '',
+      siteId: driverSiteId,
+      enabled: row[3] !== '否',
+      notes: row[4] || ''
     });
   }
   

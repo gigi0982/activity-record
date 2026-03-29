@@ -605,10 +605,12 @@ export interface ElderFamily {
 }
 
 export const driverApi = {
-    // 取得所有司機
-    async getDrivers(): Promise<DriverSetting[]> {
+    // 取得司機（依據點過濾）
+    async getDrivers(siteId?: string): Promise<DriverSetting[]> {
         try {
-            const result = await api.getFromGoogleScript<unknown>('getDrivers', {});
+            const params: Record<string, string> = {};
+            if (siteId) params.siteId = siteId;
+            const result = await api.getFromGoogleScript<unknown>('getDrivers', params);
             return Array.isArray(result) ? (result as DriverSetting[]) : [];
         } catch {
             return [];

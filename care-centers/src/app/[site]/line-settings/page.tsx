@@ -26,7 +26,7 @@ export default function LineSettingsPage() {
     const [drivers, setDrivers] = useState<DriverSetting[]>([]);
     const [isLoadingDrivers, setIsLoadingDrivers] = useState(true);
     const [showAddDriver, setShowAddDriver] = useState(false);
-    const [newDriver, setNewDriver] = useState({ name: '', lineUserId: '', siteId: siteId || 'all', notes: '' });
+    const [newDriver, setNewDriver] = useState({ name: '', lineUserId: '', siteId: siteId, notes: '' });
     const [editingDriver, setEditingDriver] = useState<(DriverSetting & { originalName: string }) | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -52,11 +52,11 @@ export default function LineSettingsPage() {
     const loadDrivers = useCallback(async () => {
         setIsLoadingDrivers(true);
         try {
-            const data = await driverApi.getDrivers();
+            const data = await driverApi.getDrivers(siteId);
             setDrivers(data || []);
         } catch { /* empty */ }
         finally { setIsLoadingDrivers(false); }
-    }, []);
+    }, [siteId]);
 
     const loadFamily = useCallback(async () => {
         setIsLoadingFamily(true);
@@ -90,7 +90,7 @@ export default function LineSettingsPage() {
             const result = await driverApi.addDriver(newDriver);
             if (result.success) {
                 alert('✅ 司機已新增');
-                setNewDriver({ name: '', lineUserId: '', siteId: siteId || 'all', notes: '' });
+                setNewDriver({ name: '', lineUserId: '', siteId: siteId, notes: '' });
                 setShowAddDriver(false);
                 setTimeout(loadDrivers, 1500);
             } else {
@@ -108,7 +108,7 @@ export default function LineSettingsPage() {
                 originalName: editingDriver.originalName,
                 name: editingDriver.name,
                 lineUserId: editingDriver.lineUserId,
-                siteId: editingDriver.siteId,
+                siteId: siteId,
                 enabled: editingDriver.enabled,
                 notes: editingDriver.notes,
             });
@@ -178,7 +178,7 @@ export default function LineSettingsPage() {
                     LINE 通知設定
                 </h1>
                 <p className="text-gray-500 text-sm mt-1">
-                    管理司機與家屬的 LINE 通知，系統每兩週自動發送薪資明細及血壓報告
+                    管理 <span className="font-semibold text-sky-700">{SITE_NAMES[siteId] || siteId}</span> 據點的司機與家屬 LINE 通知
                 </p>
             </div>
 
@@ -236,7 +236,7 @@ export default function LineSettingsPage() {
                     <div className="flex justify-between items-center">
                         <h2 className="font-semibold text-gray-800 flex items-center gap-2">
                             <Truck className="w-5 h-5 text-sky-600" />
-                            司機名單
+                            {SITE_NAMES[siteId] || siteId}據點 司機名單
                         </h2>
                         <div className="flex gap-2">
                             <button onClick={loadDrivers} className="text-gray-500 hover:text-sky-600 p-2 rounded-lg hover:bg-sky-50 transition-colors">
@@ -290,15 +290,10 @@ export default function LineSettingsPage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">服務據點</label>
-                                        <select
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
-                                            value={newDriver.siteId}
-                                            onChange={(e) => setNewDriver({ ...newDriver, siteId: e.target.value })}
-                                        >
-                                            {Object.entries(SITE_NAMES).map(([id, name]) => (
-                                                <option key={id} value={id}>{name}</option>
-                                            ))}
-                                        </select>
+                                        <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm font-medium">
+                                            📍 {SITE_NAMES[siteId] || siteId}
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">依當前登入據點自動設定</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">備註</label>
@@ -373,7 +368,7 @@ export default function LineSettingsPage() {
                                                         </span>
                                                     </div>
                                                     <div className="text-xs text-gray-500 mt-0.5">
-                                                        {SITE_NAMES[driver.siteId] || driver.siteId}
+                                                        📍 {SITE_NAMES[driver.siteId] || driver.siteId}
                                                         {driver.notes && ` · ${driver.notes}`}
                                                     </div>
                                                 </div>
@@ -739,15 +734,9 @@ export default function LineSettingsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">服務據點</label>
-                                    <select
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                                        value={editingDriver.siteId}
-                                        onChange={(e) => setEditingDriver({ ...editingDriver, siteId: e.target.value })}
-                                    >
-                                        {Object.entries(SITE_NAMES).map(([id, name]) => (
-                                            <option key={id} value={id}>{name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm font-medium">
+                                        📍 {SITE_NAMES[siteId] || siteId}
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">啟用通知</label>

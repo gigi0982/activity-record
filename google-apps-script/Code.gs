@@ -1670,16 +1670,31 @@ function getElderMonthlyUsage(siteId, month) {
   
   // 組合結果
   var result = [];
+  var BD03_RATE = 115;
   for (var name in elderMap) {
     var elder = elderMap[name];
+    var totalUsed = usageMap[name] || 0;
+    var tripCount = Math.round(totalUsed / BD03_RATE); // 已使用趟數
+    
     if (elder.monthlyQuota > 0) {
-      var totalUsed = usageMap[name] || 0;
+      var maxTrips = Math.floor(elder.monthlyQuota / BD03_RATE);
+      var remainingTrips = maxTrips - tripCount;
+      var overQuotaTrips = remainingTrips < 0 ? Math.abs(remainingTrips) : 0;
+      var overQuotaAmount = overQuotaTrips * BD03_RATE;
       result.push({
         elderName: name,
         totalUsed: totalUsed,
         quota: elder.monthlyQuota,
         remaining: elder.monthlyQuota - totalUsed,
-        percentage: Math.round((totalUsed / elder.monthlyQuota) * 100)
+        percentage: Math.round((totalUsed / elder.monthlyQuota) * 100),
+        tripCount: tripCount,
+        maxTrips: maxTrips,
+        roundTrips: Math.floor(tripCount / 2),
+        maxRoundTrips: Math.floor(maxTrips / 2),
+        remainingTrips: Math.max(remainingTrips, 0),
+        overQuotaTrips: overQuotaTrips,
+        overQuotaAmount: overQuotaAmount,
+        isOverQuota: totalUsed > elder.monthlyQuota
       });
     }
   }

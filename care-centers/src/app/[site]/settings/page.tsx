@@ -276,6 +276,12 @@ export default function SettingsPage() {
                                 value={newElder.monthlyQuota}
                                 onChange={(e) => setNewElder({ ...newElder, monthlyQuota: e.target.value })}
                             />
+                            {newElder.monthlyQuota && Number(newElder.monthlyQuota) > 0 && (
+                                <p className="text-xs text-blue-600 mt-1 font-medium">
+                                    💡 ${Number(newElder.monthlyQuota).toLocaleString()} ÷ $115 = 可搭 {Math.floor(Number(newElder.monthlyQuota) / 115)} 趟（{Math.floor(Number(newElder.monthlyQuota) / 115 / 2)} 來回）
+                                </p>
+                            )}
+                            <p className="text-xs text-gray-400 mt-0.5">CMS2=$3,006 / CMS3=$4,638 / CMS4=$5,574</p>
                         </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -414,9 +420,14 @@ export default function SettingsPage() {
                                                 </td>
                                                 <td className="px-3 py-3 whitespace-nowrap">
                                                     {elder.monthlyQuota ? (
-                                                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">
-                                                            ${elder.monthlyQuota.toLocaleString()}
-                                                        </span>
+                                                        <div>
+                                                            <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">
+                                                                ${elder.monthlyQuota.toLocaleString()}
+                                                            </span>
+                                                            <span className="text-[10px] text-gray-500 ml-1">
+                                                                {Math.floor(elder.monthlyQuota / 115)}趟
+                                                            </span>
+                                                        </div>
                                                     ) : (
                                                         <span className="text-gray-400">不限</span>
                                                     )}
@@ -545,6 +556,11 @@ export default function SettingsPage() {
                                         value={editingElder.monthlyQuota}
                                         onChange={(e) => setEditingElder({ ...editingElder, monthlyQuota: e.target.value })}
                                     />
+                                    {editingElder.monthlyQuota && Number(editingElder.monthlyQuota) > 0 && (
+                                        <p className="text-xs text-blue-600 mt-1 font-medium">
+                                            💡 ${Number(editingElder.monthlyQuota).toLocaleString()} ÷ $115 = 可搭 {Math.floor(Number(editingElder.monthlyQuota) / 115)} 趟（{Math.floor(Number(editingElder.monthlyQuota) / 115 / 2)} 來回）
+                                        </p>
+                                    )}
                                     <p className="text-xs text-gray-500 mt-1">參考：CMS2=$3,006 / CMS3=$4,638 / CMS4=$5,574</p>
                                 </div>
                             </div>

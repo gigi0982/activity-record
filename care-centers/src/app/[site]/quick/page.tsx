@@ -128,7 +128,7 @@ export default function QuickEntryPage() {
     const [successMessage, setSuccessMessage] = useState('');
 
     // 月額度追蹤
-    const [quotaUsage, setQuotaUsage] = useState<Record<string, { totalUsed: number; quota: number; remaining: number; percentage: number }>>({});
+    const [quotaUsage, setQuotaUsage] = useState<Record<string, { totalUsed: number; quota: number; remaining: number; percentage: number; tripCount?: number; maxTrips?: number; remainingTrips?: number; overQuotaTrips?: number; overQuotaAmount?: number; isOverQuota?: boolean }>>({});
 
     // 動態費率設定（從費用設定頁面載入）
     const [feeRates, setFeeRates] = useState(DEFAULT_FEE_RATES);
@@ -294,8 +294,10 @@ export default function QuickEntryPage() {
         // 檢查額度
         if (newAttended) {
             const usage = quotaUsage[elder.name];
-            if (usage && usage.percentage >= 80) {
-                alert(`⚠️ ${elder.name} 本月剩餘額度僅 $${usage.remaining} / $${usage.quota.toLocaleString()}（已使用 ${usage.percentage}%），請注意！`);
+            if (usage && usage.isOverQuota) {
+                alert(`🚨 ${elder.name} 本月已超出額度！\n\n額度：$${usage.quota.toLocaleString()}\n已用：$${usage.totalUsed.toLocaleString()}（${usage.tripCount} 趟）\n超額：${usage.overQuotaTrips} 趟 = $${(usage.overQuotaAmount || 0).toLocaleString()}\n\n⚠️ 超額部分每趟 $115 需向家屬收取自費！`);
+            } else if (usage && usage.percentage >= 80) {
+                alert(`⚠️ ${elder.name} 本月額度即將用完！\n\n額度：$${usage.quota.toLocaleString()}\n剩餘：$${usage.remaining} （剩 ${usage.remainingTrips} 趟）\n\n超過額度後每趟 $115 需向家屬收取自費`);
             }
         }
         setElders(prev => prev.map((e, i) => {
@@ -315,8 +317,10 @@ export default function QuickEntryPage() {
         // 檢查額度
         if (newAttended) {
             const usage = quotaUsage[elder.name];
-            if (usage && usage.percentage >= 80) {
-                alert(`⚠️ ${elder.name} 本月剩餘額度僅 $${usage.remaining} / $${usage.quota.toLocaleString()}（已使用 ${usage.percentage}%），請注意！`);
+            if (usage && usage.isOverQuota) {
+                alert(`🚨 ${elder.name} 本月已超出額度！\n\n額度：$${usage.quota.toLocaleString()}\n已用：$${usage.totalUsed.toLocaleString()}（${usage.tripCount} 趟）\n超額：${usage.overQuotaTrips} 趟 = $${(usage.overQuotaAmount || 0).toLocaleString()}\n\n⚠️ 超額部分每趟 $115 需向家屬收取自費！`);
+            } else if (usage && usage.percentage >= 80) {
+                alert(`⚠️ ${elder.name} 本月額度即將用完！\n\n額度：$${usage.quota.toLocaleString()}\n剩餘：$${usage.remaining} （剩 ${usage.remainingTrips} 趟）\n\n超過額度後每趟 $115 需向家屬收取自費`);
             }
         }
         setElders(prev => prev.map((e, i) => {
@@ -355,6 +359,9 @@ export default function QuickEntryPage() {
         let elderTransportFee = 0;
         // 駕駛薪資：依每位長者的自訂車資加總
         let driverSalaryRaw = 0;
+        // 超額自費金額（超過月額度的趟次，每趟 $115 需家屬自付）
+        let overQuotaFee = 0;
+        let overQuotaElders: { name: string; trips: number; amount: number }[] = [];
         // 只計算非虛報的長者費用
         realElders.forEach(e => {
             if (e.pickupAM || e.pickupPM) {
@@ -369,6 +376,16 @@ export default function QuickEntryPage() {
                 if (e.pickupAM) trips++;
                 if (e.pickupPM) trips++;
                 driverSalaryRaw += driverFare * trips;
+            }
+            // 計算超額自費
+            const usage = quotaUsage[e.name];
+            if (usage && usage.isOverQuota && usage.overQuotaAmount && usage.overQuotaAmount > 0) {
+                overQuotaFee += usage.overQuotaAmount;
+                overQuotaElders.push({
+                    name: e.name,
+                    trips: usage.overQuotaTrips || 0,
+                    amount: usage.overQuotaAmount
+                });
             }
         });
         const driverSalary = feeRates.DRIVER_MIN_DAILY > 0
@@ -405,7 +422,9 @@ export default function QuickEntryPage() {
             caregiverTransportFee,
             caregiverDriverSalary,
             selfFundedFee,
-            totalIncome: elderTransportFee + elderMealFee + caregiverMealFee + caregiverTransportFee + selfFundedFee,
+            overQuotaFee,
+            overQuotaElders,
+            totalIncome: elderTransportFee + elderMealFee + caregiverMealFee + caregiverTransportFee + selfFundedFee + overQuotaFee,
             totalExpense: lunchboxCost + driverSalary + caregiverDriverSalary,
         };
     };
@@ -459,6 +478,8 @@ export default function QuickEntryPage() {
             caregiverTransportFee: fees.caregiverTransportFee,
             caregiverDriverSalary: fees.caregiverDriverSalary,
             selfFundedFee: fees.selfFundedFee,
+            overQuotaFee: fees.overQuotaFee,
+            overQuotaElders: fees.overQuotaElders,
             totalIncome: fees.totalIncome,
             totalExpense: fees.totalExpense,
         };
@@ -608,11 +629,12 @@ export default function QuickEntryPage() {
                                 <div className="flex items-center gap-1">
                                     <span className={`font-bold text-sm ${elder.virtual ? 'line-through text-gray-400' : ''}`}>{elder.name}</span>
                                     {quotaUsage[elder.name] && (
-                                        <span className={`text-[9px] px-1 py-0.5 rounded font-bold ${quotaUsage[elder.name].percentage >= 90 ? 'bg-red-500 text-white' :
+                                        <span className={`text-[9px] px-1 py-0.5 rounded font-bold ${quotaUsage[elder.name].isOverQuota ? 'bg-red-600 text-white animate-pulse' :
+                                            quotaUsage[elder.name].percentage >= 90 ? 'bg-red-500 text-white' :
                                             quotaUsage[elder.name].percentage >= 70 ? 'bg-yellow-400 text-gray-800' :
                                                 'bg-green-400 text-white'
                                             }`}>
-                                            {100 - quotaUsage[elder.name].percentage}%
+                                            {quotaUsage[elder.name].isOverQuota ? `超額${quotaUsage[elder.name].overQuotaTrips}趟` : `剩${100 - quotaUsage[elder.name].percentage}%`}
                                         </span>
                                     )}
                                     {elder.virtual && (
@@ -771,6 +793,12 @@ export default function QuickEntryPage() {
                                     <span>${fees.selfFundedFee}</span>
                                 </div>
                             )}
+                            {fees.overQuotaFee > 0 && (
+                                <div className="flex justify-between text-red-300">
+                                    <span>🚨 超額自費：</span>
+                                    <span>${fees.overQuotaFee.toLocaleString()}</span>
+                                </div>
+                            )}
                         </div>
                         <div className="border-t border-white/30 mt-2 pt-2 flex justify-between font-bold text-lg">
                             <span>小計：</span>
@@ -808,6 +836,29 @@ export default function QuickEntryPage() {
                     </span>
                 </div>
             </div>
+
+            {/* 超額自費提醒 */}
+            {fees.overQuotaElders.length > 0 && (
+                <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-4 animate-pulse">
+                    <div className="font-bold text-red-700 mb-2">🚨 超額自費提醒（需向家屬收取）</div>
+                    <div className="text-sm text-red-600 mb-2">
+                        以下長者本月已超出長照額度，超額部分每趟 $115 需由家屬自費：
+                    </div>
+                    <div className="space-y-1">
+                        {fees.overQuotaElders.map(e => (
+                            <div key={e.name} className="flex justify-between items-center bg-red-100 rounded-lg px-3 py-2 text-sm">
+                                <span className="font-bold text-red-800">{e.name}</span>
+                                <span className="text-red-700">超額 {e.trips} 趟 × $115 = <strong>${e.amount.toLocaleString()}</strong></span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-red-300 flex justify-between font-bold text-red-800">
+                        <span>超額自費合計：</span>
+                        <span className="text-lg">${fees.overQuotaFee.toLocaleString()}</span>
+                    </div>
+                    <p className="text-xs text-red-500 mt-2">⚠️ 請於月底越捷報表中向家屬收取此費用，避免漏收</p>
+                </div>
+            )}
 
             {/* 統計區 */}
             <div className="grid grid-cols-5 gap-2 p-4 bg-gray-100 rounded-xl mb-20">

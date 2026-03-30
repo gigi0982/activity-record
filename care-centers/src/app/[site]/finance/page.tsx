@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { financeRecordApi, FinanceRecordItem, BudgetItem, ReimbursementItem } from '@/lib/api';
+import { financeRecordApi, FinanceRecordItem, FinanceAutoFillData, BudgetItem, ReimbursementItem } from '@/lib/api';
 import { SITES } from '@/config/sites';
-import { Plus, Trash2, Copy, DollarSign, TrendingUp, TrendingDown, FileText, PiggyBank, RefreshCw, Lock, LogOut } from 'lucide-react';
+import { Plus, Trash2, Copy, DollarSign, TrendingUp, TrendingDown, FileText, PiggyBank, RefreshCw, Lock, LogOut, Zap } from 'lucide-react';
 
 // ===== 管理帳號密碼（全據點共用） =====
 const FINANCE_ACCOUNT = 'gigi0982';
@@ -153,6 +153,17 @@ function FinanceContent({ siteId, onLogout }: { siteId: string; onLogout: () => 
     const [isCopying, setIsCopying] = useState(false);
     const [message, setMessage] = useState('');
 
+    // 自動帶入
+    const [autoFillData, setAutoFillData] = useState<FinanceAutoFillData | null>(null);
+    const [showAutoFill, setShowAutoFill] = useState(false);
+    const [isAutoFilling, setIsAutoFilling] = useState(false);
+    const [autoFillChecked, setAutoFillChecked] = useState({
+        mealIncome: true,
+        elderTransport: true,
+        transportSubsidy: true,
+        driverSalary: true,
+    });
+
     const loadExpenses = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -231,6 +242,91 @@ function FinanceContent({ siteId, onLogout }: { siteId: string; onLogout: () => 
             setMessage('❌ 複製失敗');
         } finally {
             setIsCopying(false);
+        }
+    };
+
+    // 自動帶入（從快速登記計算）
+    const handleAutoFillLoad = async () => {
+        setIsAutoFilling(true);
+        try {
+            const data = await financeRecordApi.getAutoFill(siteId, selectedMonth);
+            if (data && data.success) {
+                setAutoFillData(data);
+                setShowAutoFill(true);
+                setAutoFillChecked({
+                    mealIncome: true,
+                    elderTransport: true,
+                    transportSubsidy: true,
+                    driverSalary: true,
+                });
+            } else {
+                setMessage('❌ 無法取得自動帶入資料');
+            }
+        } catch {
+            setMessage('❌ 載入自動帶入資料失敗');
+        } finally {
+            setIsAutoFilling(false);
+        }
+    };
+
+    const handleAutoFillConfirm = async () => {
+        if (!autoFillData) return;
+        setIsAutoFilling(true);
+        const lastDay = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]), 0).getDate();
+        const recordDate = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`; // 用月底日期
+
+        try {
+            const promises: Promise<{ success: boolean; message: string }>[] = [];
+
+            if (autoFillChecked.mealIncome && autoFillData.mealIncome > 0) {
+                promises.push(financeRecordApi.addRecord({
+                    siteId, date: recordDate, type: 'income',
+                    category: '長輩自付額（餐費）',
+                    description: `${selectedMonth} 用餐 ${autoFillData.mealCount} 人次 × $${autoFillData.rates.mealPrice}`,
+                    amount: autoFillData.mealIncome,
+                    createdBy: '系統帶入',
+                }));
+            }
+
+            if (autoFillChecked.elderTransport && autoFillData.elderTransportIncome > 0) {
+                promises.push(financeRecordApi.addRecord({
+                    siteId, date: recordDate, type: 'income',
+                    category: '長輩自付額（交通）',
+                    description: `${selectedMonth} 搭車 ${autoFillData.transportTripCount} 趟次 × $${autoFillData.rates.transportNormal}`,
+                    amount: autoFillData.elderTransportIncome,
+                    createdBy: '系統帶入',
+                }));
+            }
+
+            if (autoFillChecked.transportSubsidy && autoFillData.transportSubsidy > 0) {
+                promises.push(financeRecordApi.addRecord({
+                    siteId, date: recordDate, type: 'income',
+                    category: '交通申請補助款',
+                    description: `${selectedMonth} BD03補助 ${autoFillData.transportTripCount} 趟次 × $${autoFillData.rates.BD03_RATE}`,
+                    amount: autoFillData.transportSubsidy,
+                    createdBy: '系統帶入',
+                }));
+            }
+
+            if (autoFillChecked.driverSalary && autoFillData.driverSalaryExpense > 0) {
+                promises.push(financeRecordApi.addRecord({
+                    siteId, date: recordDate, type: 'expense',
+                    category: '駕駛薪資',
+                    description: `${selectedMonth} 接送 ${autoFillData.transportPersonCount} 人次 × $${autoFillData.rates.driverSalaryPerTrip}`,
+                    amount: autoFillData.driverSalaryExpense,
+                    createdBy: '系統帶入',
+                }));
+            }
+
+            await Promise.all(promises);
+            setMessage(`✅ 已自動帶入 ${promises.length} 筆紀錄`);
+            setShowAutoFill(false);
+            setAutoFillData(null);
+            loadExpenses();
+        } catch {
+            setMessage('❌ 自動帶入失敗');
+        } finally {
+            setIsAutoFilling(false);
         }
     };
 
@@ -423,6 +519,14 @@ function FinanceContent({ siteId, onLogout }: { siteId: string; onLogout: () => 
                                 ))}
                             </select>
                             <button
+                                onClick={handleAutoFillLoad}
+                                disabled={isAutoFilling}
+                                className="flex items-center gap-1 px-3 py-2.5 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 disabled:opacity-50 whitespace-nowrap"
+                            >
+                                <Zap className="w-4 h-4" />
+                                {isAutoFilling ? '計算中...' : '自動帶入'}
+                            </button>
+                            <button
                                 onClick={handleCopyLastMonth}
                                 disabled={isCopying}
                                 className="flex items-center gap-1 px-3 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50 whitespace-nowrap"
@@ -456,6 +560,112 @@ function FinanceContent({ siteId, onLogout }: { siteId: string; onLogout: () => 
                                 </div>
                             )}
                         </div>
+
+                        {/* 自動帶入預覽 */}
+                        {showAutoFill && autoFillData && (
+                            <div className="bg-violet-50 border-2 border-violet-300 rounded-xl p-4 mb-4">
+                                <div className="font-bold text-violet-800 mb-1">⚡ 自動帶入預覽</div>
+                                <p className="text-xs text-violet-600 mb-3">以下金額根據 {selectedMonth.replace('-', '年')}月 快速登記資料自動計算，勾選後確認帶入</p>
+                                
+                                <div className="space-y-2.5">
+                                    {/* 收入：長輩自付額（餐費） */}
+                                    <label className="flex items-center gap-3 bg-white rounded-lg p-3 cursor-pointer hover:bg-green-50 transition">
+                                        <input
+                                            type="checkbox"
+                                            checked={autoFillChecked.mealIncome}
+                                            onChange={e => setAutoFillChecked({ ...autoFillChecked, mealIncome: e.target.checked })}
+                                            className="w-4 h-4 accent-emerald-600"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">收入</span>
+                                                <span className="text-sm font-medium">長輩自付額（餐費）</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                用餐 {autoFillData.mealCount} 人次 × ${autoFillData.rates.mealPrice}
+                                            </p>
+                                        </div>
+                                        <span className="text-emerald-600 font-bold">${autoFillData.mealIncome.toLocaleString()}</span>
+                                    </label>
+
+                                    {/* 收入：長輩自付額（交通） */}
+                                    <label className="flex items-center gap-3 bg-white rounded-lg p-3 cursor-pointer hover:bg-green-50 transition">
+                                        <input
+                                            type="checkbox"
+                                            checked={autoFillChecked.elderTransport}
+                                            onChange={e => setAutoFillChecked({ ...autoFillChecked, elderTransport: e.target.checked })}
+                                            className="w-4 h-4 accent-emerald-600"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">收入</span>
+                                                <span className="text-sm font-medium">長輩自付額（交通）</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                搭車 {autoFillData.transportTripCount} 趟次 × ${autoFillData.rates.transportNormal}
+                                            </p>
+                                        </div>
+                                        <span className="text-emerald-600 font-bold">${autoFillData.elderTransportIncome.toLocaleString()}</span>
+                                    </label>
+
+                                    {/* 收入：交通申請補助款 */}
+                                    <label className="flex items-center gap-3 bg-white rounded-lg p-3 cursor-pointer hover:bg-green-50 transition">
+                                        <input
+                                            type="checkbox"
+                                            checked={autoFillChecked.transportSubsidy}
+                                            onChange={e => setAutoFillChecked({ ...autoFillChecked, transportSubsidy: e.target.checked })}
+                                            className="w-4 h-4 accent-emerald-600"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">收入</span>
+                                                <span className="text-sm font-medium">交通申請補助款</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                BD03補助 {autoFillData.transportTripCount} 趟次 × ${autoFillData.rates.BD03_RATE}
+                                            </p>
+                                        </div>
+                                        <span className="text-emerald-600 font-bold">${autoFillData.transportSubsidy.toLocaleString()}</span>
+                                    </label>
+
+                                    {/* 支出：駕駛薪資 */}
+                                    <label className="flex items-center gap-3 bg-white rounded-lg p-3 cursor-pointer hover:bg-red-50 transition">
+                                        <input
+                                            type="checkbox"
+                                            checked={autoFillChecked.driverSalary}
+                                            onChange={e => setAutoFillChecked({ ...autoFillChecked, driverSalary: e.target.checked })}
+                                            className="w-4 h-4 accent-red-600"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">支出</span>
+                                                <span className="text-sm font-medium">駕駛薪資</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                接送 {autoFillData.transportPersonCount} 人次 × ${autoFillData.rates.driverSalaryPerTrip}
+                                            </p>
+                                        </div>
+                                        <span className="text-red-600 font-bold">${autoFillData.driverSalaryExpense.toLocaleString()}</span>
+                                    </label>
+                                </div>
+
+                                <div className="flex gap-2 mt-4">
+                                    <button
+                                        onClick={handleAutoFillConfirm}
+                                        disabled={isAutoFilling || (!autoFillChecked.mealIncome && !autoFillChecked.elderTransport && !autoFillChecked.transportSubsidy && !autoFillChecked.driverSalary)}
+                                        className="flex-1 py-2.5 bg-violet-600 text-white rounded-lg text-sm font-bold hover:bg-violet-700 disabled:opacity-50 transition"
+                                    >
+                                        {isAutoFilling ? '帶入中...' : '✓ 確認帶入'}
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowAutoFill(false); setAutoFillData(null); }}
+                                        className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg text-sm"
+                                    >
+                                        取消
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* 新增支出表單 */}
                         {showAddForm && (

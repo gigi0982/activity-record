@@ -567,6 +567,25 @@ export interface ReimbursementItem {
     createdAt: string;
 }
 
+export interface FinanceAutoFillData {
+    success: boolean;
+    month: string;
+    siteId: string;
+    mealCount: number;
+    mealIncome: number;
+    transportPersonCount: number;
+    transportTripCount: number;
+    elderTransportIncome: number;
+    transportSubsidy: number;
+    driverSalaryExpense: number;
+    rates: {
+        mealPrice: number;
+        transportNormal: number;
+        driverSalaryPerTrip: number;
+        BD03_RATE: number;
+    };
+}
+
 export const financeRecordApi = {
     async getRecords(siteId: string, month?: string): Promise<FinanceRecordItem[]> {
         const params: Record<string, string> = { siteId };
@@ -598,6 +617,10 @@ export const financeRecordApi = {
 
     async addReimbursement(data: { siteId: string; year: string; category: string; amount: number; description: string; date: string; createdBy?: string }): Promise<{ success: boolean; message: string }> {
         return api.postToGoogleScriptWithResult<{ success: boolean; message: string }>('addReimbursement', data);
+    },
+
+    async getAutoFill(siteId: string, month: string): Promise<FinanceAutoFillData> {
+        return api.getFromGoogleScript<FinanceAutoFillData>('getFinanceAutoFill', { siteId, month });
     },
 };
 

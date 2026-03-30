@@ -510,6 +510,12 @@ function doGet(e) {
         return ContentService.createTextOutput(JSON.stringify(deleteFinanceRecord(delFinSiteId, delFinId)))
           .setMimeType(ContentService.MimeType.JSON);
       
+      case 'getFinanceAutoFill':
+        const autoFillSiteId = e.parameter.siteId || '';
+        const autoFillMonth = e.parameter.month || '';
+        return ContentService.createTextOutput(JSON.stringify(getFinanceAutoFill(autoFillSiteId, autoFillMonth)))
+          .setMimeType(ContentService.MimeType.JSON);
+      
       default:
         return ContentService.createTextOutput(JSON.stringify({
           status: 'OK',
@@ -3923,4 +3929,114 @@ function addReimbursement(data) {
   ]);
   
   return { success: true, message: '核銷紀錄已新增' };
+}
+
+// ===================================================
+// 收支自動帶入（從快速登記計算月費用）
+// ===================================================
+
+/**
+ * 計算指定據點某月的自動帶入金額
+ * 收入：長輩自付額(餐費)、長輩自付額(交通)、交通申請補助款
+ * 支出：駕駛薪資
+ * 
+ * 快速登記欄位：[0]據點 [1]日期 [2]姓名 [3]上午出席 [4]下午出席 [5]早上搭車 [6]下午搭車 [7]用餐 [8]自費 [9]虛報
+ */
+function getFinanceAutoFill(siteId, month) {
+  if (!siteId || !month) {
+    return { success: false, message: '缺少據點或月份參數' };
+  }
+  
+  // 取得費率設定
+  var settings = getSettings(siteId);
+  var mealPrice = settings.mealPrice || 40;            // 餐費單價
+  var transportNormal = settings.transportNormal || 18; // 車資(一般/自付額)
+  var driverSalaryPerTrip = settings.driverSalaryPerTrip || 115; // 駕駛薪資/人次
+  var BD03_RATE = 115; // 政府補助固定費率
+  
+  // 讀取快速登記資料
+  var ss = getSpreadsheetBySiteId(siteId);
+  var sheet = ss.getSheetByName('快速登記');
+  
+  if (!sheet) {
+    return {
+      success: true,
+      month: month,
+      siteId: siteId,
+      mealCount: 0,
+      mealIncome: 0,
+      transportPersonCount: 0,
+      transportTripCount: 0,
+      elderTransportIncome: 0,
+      transportSubsidy: 0,
+      driverSalaryExpense: 0,
+      rates: { mealPrice: mealPrice, transportNormal: transportNormal, driverSalaryPerTrip: driverSalaryPerTrip, BD03_RATE: BD03_RATE }
+    };
+  }
+  
+  var data = sheet.getDataRange().getValues();
+  
+  var mealCount = 0;           // 用餐人次
+  var transportTripCount = 0;  // 搭車趟次（每人早上接＋下午送各算一趟）
+  var transportPersonCount = 0; // 搭車人次（有搭車的人數，不分早晚）
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var rowSiteId = String(row[0]).trim();
+    
+    // 處理日期格式
+    var rowDate = row[1];
+    if (rowDate instanceof Date) {
+      var year = rowDate.getFullYear();
+      var m = String(rowDate.getMonth() + 1).padStart(2, '0');
+      rowDate = year + '-' + m;
+    } else {
+      rowDate = String(rowDate).trim().substring(0, 7);
+    }
+    
+    // 過濾據點和月份
+    if (rowSiteId !== siteId) continue;
+    if (rowDate !== month) continue;
+    
+    // 虛報不計
+    var isVirtual = row[9] ? String(row[9]).trim() === '是' : false;
+    if (isVirtual) continue;
+    
+    // 用餐 [7]
+    var hasMeal = String(row[7]).trim() === '是';
+    if (hasMeal) mealCount++;
+    
+    // 搭車 [5]=早上搭車 [6]=下午搭車
+    var pickUp = String(row[5]).trim() === '是';
+    var dropOff = String(row[6]).trim() === '是';
+    
+    if (pickUp) transportTripCount++;
+    if (dropOff) transportTripCount++;
+    if (pickUp || dropOff) transportPersonCount++;
+  }
+  
+  // 計算金額
+  var mealIncome = mealCount * mealPrice;                        // 收入：長輩自付額（餐費）
+  var elderTransportIncome = transportTripCount * transportNormal; // 收入：長輩自付額（交通）— 每趟自付
+  var transportSubsidy = transportTripCount * BD03_RATE;          // 收入：交通申請補助款（BD03）
+  var driverSalaryExpense = transportPersonCount * driverSalaryPerTrip; // 支出：駕駛薪資 — 以人次計
+  
+  return {
+    success: true,
+    month: month,
+    siteId: siteId,
+    mealCount: mealCount,
+    mealIncome: mealIncome,
+    transportPersonCount: transportPersonCount,
+    transportTripCount: transportTripCount,
+    elderTransportIncome: elderTransportIncome,
+    transportSubsidy: transportSubsidy,
+    driverSalaryExpense: driverSalaryExpense,
+    rates: {
+      mealPrice: mealPrice,
+      transportNormal: transportNormal,
+      driverSalaryPerTrip: driverSalaryPerTrip,
+      BD03_RATE: BD03_RATE
+    }
+  };
 }

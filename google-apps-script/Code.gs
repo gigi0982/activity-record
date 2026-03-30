@@ -914,7 +914,8 @@ function getElders(siteId) {
       notes: row[8] || '',
       familyLineId: row[9] || '',
       customFare: row[10] || 0,
-      monthlyQuota: row[11] || 0
+      monthlyQuota: row[11] || 0,
+      caseNumber: row[13] || ''
     });
   }
   return elders;
@@ -927,7 +928,7 @@ function addElder(data) {
   
   if (!sheet) {
     sheet = ss.insertSheet('長者名單');
-    sheet.appendRow(['姓名', '分級', '分級說明', '建議評分', '身份類別', '身份說明', '車資', '補助類型', '備註', '家屬LINE', '自訂車資', '月額度上限', '建立時間']);
+    sheet.appendRow(['姓名', '分級', '分級說明', '建議評分', '身份類別', '身份說明', '車資', '補助類型', '備註', '家屬LINE', '自訂車資', '月額度上限', '建立時間', '個案編號']);
   }
   
   const allData = sheet.getDataRange().getValues();
@@ -950,7 +951,8 @@ function addElder(data) {
     data.familyLineId || '',
     data.customFare || 0,
     data.monthlyQuota || 0,
-    new Date().toISOString()
+    new Date().toISOString(),
+    data.caseNumber || ''
   ]);
   
   return { success: true, message: '長者已新增' };
@@ -979,6 +981,7 @@ function updateElder(data) {
       sheet.getRange(row, 10).setValue(data.familyLineId || '');
       sheet.getRange(row, 11).setValue(data.customFare || 0);
       sheet.getRange(row, 12).setValue(data.monthlyQuota || 0);
+      sheet.getRange(row, 14).setValue(data.caseNumber || '');
       return { success: true, message: '長者已更新' };
     }
   }

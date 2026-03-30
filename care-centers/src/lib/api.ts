@@ -122,6 +122,7 @@ export const authApi = {
 export interface Elder {
     id: string;
     name: string;
+    caseNumber: string;       // 個案編號
     level: 'A' | 'B' | 'C';
     levelDesc: string;
     scoreRange: string;
@@ -137,6 +138,7 @@ export interface Elder {
 
 export interface NewElderData {
     name: string;
+    caseNumber?: string;
     level: string;
     levelDesc: string;
     scoreRange: string;

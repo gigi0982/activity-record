@@ -6,6 +6,7 @@ import { getLevelInfo, getIdentityInfo } from '@/lib/utils';
 
 interface NewElder {
     name: string;
+    caseNumber: string;
     level: string;
     identityType: string;
     subsidyType: string;
@@ -22,7 +23,7 @@ interface EditingElder extends NewElder {
 export default function SettingsPage() {
     const [elders, setElders] = useState<Elder[]>([]);
     const [newElder, setNewElder] = useState<NewElder>({
-        name: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: ''
+        name: '', caseNumber: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: ''
     });
     const [isLoadingElders, setIsLoadingElders] = useState(true);
     const [editingElder, setEditingElder] = useState<EditingElder | null>(null);
@@ -58,6 +59,7 @@ export default function SettingsPage() {
         try {
             await elderApi.addElder({
                 name: newElder.name.trim(),
+                caseNumber: newElder.caseNumber.trim(),
                 level: newElder.level,
                 levelDesc: levelInfo.desc,
                 scoreRange: levelInfo.range,
@@ -70,7 +72,7 @@ export default function SettingsPage() {
                 customFare: newElder.customFare ? Number(newElder.customFare) : undefined,
                 monthlyQuota: newElder.monthlyQuota ? Number(newElder.monthlyQuota) : undefined,
             });
-            setNewElder({ name: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: '' });
+            setNewElder({ name: '', caseNumber: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: '' });
             alert('新增成功！資料將在 1-2 秒後更新');
             setTimeout(loadElders, 1500);
         } catch (err) {
@@ -149,6 +151,7 @@ export default function SettingsPage() {
         setEditingElder({
             originalName: elder.name,
             name: elder.name,
+            caseNumber: elder.caseNumber || '',
             level: elder.level || 'A',
             identityType: elder.identityType || 'normal',
             subsidyType: elder.subsidyType || 'subsidy',
@@ -171,6 +174,7 @@ export default function SettingsPage() {
             await elderApi.updateElder({
                 originalName: editingElder.originalName,
                 name: editingElder.name.trim(),
+                caseNumber: editingElder.caseNumber.trim(),
                 level: editingElder.level,
                 levelDesc: levelInfo.desc,
                 scoreRange: levelInfo.range,
@@ -218,6 +222,16 @@ export default function SettingsPage() {
                                 placeholder="長者姓名"
                                 value={newElder.name}
                                 onChange={(e) => setNewElder({ ...newElder, name: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">個案編號</label>
+                            <input
+                                type="text"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                placeholder="例：A11200001"
+                                value={newElder.caseNumber}
+                                onChange={(e) => setNewElder({ ...newElder, caseNumber: e.target.value })}
                             />
                         </div>
                         <div>
@@ -362,6 +376,7 @@ export default function SettingsPage() {
                                             />
                                         </th>
                                         <th className="px-3 py-3 font-medium">姓名</th>
+                                        <th className="px-3 py-3 font-medium">個案編號</th>
                                         <th className="px-3 py-3 font-medium">分級</th>
                                         <th className="px-3 py-3 font-medium">身份類別</th>
                                         <th className="px-3 py-3 font-medium">補助/自費</th>
@@ -387,6 +402,7 @@ export default function SettingsPage() {
                                                     />
                                                 </td>
                                                 <td className="px-3 py-3 font-medium whitespace-nowrap">{elder.name}</td>
+                                                <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{elder.caseNumber || '-'}</td>
                                                 <td className="px-3 py-3">
                                                     <span
                                                         className="px-2 py-1 rounded-full text-white text-xs font-medium whitespace-nowrap"
@@ -485,6 +501,16 @@ export default function SettingsPage() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                                     value={editingElder.name}
                                     onChange={(e) => setEditingElder({ ...editingElder, name: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">個案編號</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    placeholder="例：A11200001"
+                                    value={editingElder.caseNumber}
+                                    onChange={(e) => setEditingElder({ ...editingElder, caseNumber: e.target.value })}
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-4">

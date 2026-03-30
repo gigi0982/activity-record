@@ -134,6 +134,15 @@ export interface Elder {
     notes: string;
     customFare?: number;      // 自訂車資（外籍專用）
     monthlyQuota?: number;    // 月額度上限（0=不限）
+    caseSource?: string;      // 個案來源
+    hospital?: string;        // 確診醫院
+    diagnosisDate?: string;   // 診斷書日期
+    dementiaLevel?: string;   // 失智程度
+    cdrScore?: string;        // CDR分數
+    cmsScore?: string;        // CMS分數
+    adlScore?: string;        // ADL
+    iadlScore?: string;       // IADL
+    caregiverBurdenScore?: string; // 照顧者負荷量量表分數
 }
 
 export interface NewElderData {
@@ -150,6 +159,15 @@ export interface NewElderData {
     familyLineId: string;
     customFare?: number;
     monthlyQuota?: number;
+    caseSource?: string;
+    hospital?: string;
+    diagnosisDate?: string;
+    dementiaLevel?: string;
+    cdrScore?: string;
+    cmsScore?: string;
+    adlScore?: string;
+    iadlScore?: string;
+    caregiverBurdenScore?: string;
 }
 
 export interface UpdateElderData extends NewElderData {

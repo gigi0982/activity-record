@@ -915,7 +915,16 @@ function getElders(siteId) {
       familyLineId: row[9] || '',
       customFare: row[10] || 0,
       monthlyQuota: row[11] || 0,
-      caseNumber: row[13] || ''
+      caseNumber: row[13] || '',
+      caseSource: row[14] || '',
+      hospital: row[15] || '',
+      diagnosisDate: row[16] || '',
+      dementiaLevel: row[17] || '',
+      cdrScore: row[18] || '',
+      cmsScore: row[19] || '',
+      adlScore: row[20] || '',
+      iadlScore: row[21] || '',
+      caregiverBurdenScore: row[22] || ''
     });
   }
   return elders;
@@ -928,7 +937,7 @@ function addElder(data) {
   
   if (!sheet) {
     sheet = ss.insertSheet('長者名單');
-    sheet.appendRow(['姓名', '分級', '分級說明', '建議評分', '身份類別', '身份說明', '車資', '補助類型', '備註', '家屬LINE', '自訂車資', '月額度上限', '建立時間', '個案編號']);
+    sheet.appendRow(['姓名', '分級', '分級說明', '建議評分', '身份類別', '身份說明', '車資', '補助類型', '備註', '家屬LINE', '自訂車資', '月額度上限', '建立時間', '個案編號', '個案來源', '確診醫院', '診斷書日期', '失智程度', 'CDR分數', 'CMS分數', 'ADL', 'IADL', '照顧者負荷量']);
   }
   
   const allData = sheet.getDataRange().getValues();
@@ -952,7 +961,16 @@ function addElder(data) {
     data.customFare || 0,
     data.monthlyQuota || 0,
     new Date().toISOString(),
-    data.caseNumber || ''
+    data.caseNumber || '',
+    data.caseSource || '',
+    data.hospital || '',
+    data.diagnosisDate || '',
+    data.dementiaLevel || '',
+    data.cdrScore || '',
+    data.cmsScore || '',
+    data.adlScore || '',
+    data.iadlScore || '',
+    data.caregiverBurdenScore || ''
   ]);
   
   return { success: true, message: '長者已新增' };
@@ -982,6 +1000,15 @@ function updateElder(data) {
       sheet.getRange(row, 11).setValue(data.customFare || 0);
       sheet.getRange(row, 12).setValue(data.monthlyQuota || 0);
       sheet.getRange(row, 14).setValue(data.caseNumber || '');
+      sheet.getRange(row, 15).setValue(data.caseSource || '');
+      sheet.getRange(row, 16).setValue(data.hospital || '');
+      sheet.getRange(row, 17).setValue(data.diagnosisDate || '');
+      sheet.getRange(row, 18).setValue(data.dementiaLevel || '');
+      sheet.getRange(row, 19).setValue(data.cdrScore || '');
+      sheet.getRange(row, 20).setValue(data.cmsScore || '');
+      sheet.getRange(row, 21).setValue(data.adlScore || '');
+      sheet.getRange(row, 22).setValue(data.iadlScore || '');
+      sheet.getRange(row, 23).setValue(data.caregiverBurdenScore || '');
       return { success: true, message: '長者已更新' };
     }
   }

@@ -14,6 +14,15 @@ interface NewElder {
     familyLineId: string;
     customFare: string;
     monthlyQuota: string;
+    caseSource: string;
+    hospital: string;
+    diagnosisDate: string;
+    dementiaLevel: string;
+    cdrScore: string;
+    cmsScore: string;
+    adlScore: string;
+    iadlScore: string;
+    caregiverBurdenScore: string;
 }
 
 interface EditingElder extends NewElder {
@@ -23,7 +32,8 @@ interface EditingElder extends NewElder {
 export default function SettingsPage() {
     const [elders, setElders] = useState<Elder[]>([]);
     const [newElder, setNewElder] = useState<NewElder>({
-        name: '', caseNumber: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: ''
+        name: '', caseNumber: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: '',
+        caseSource: '', hospital: '', diagnosisDate: '', dementiaLevel: '', cdrScore: '', cmsScore: '', adlScore: '', iadlScore: '', caregiverBurdenScore: ''
     });
     const [isLoadingElders, setIsLoadingElders] = useState(true);
     const [editingElder, setEditingElder] = useState<EditingElder | null>(null);
@@ -71,8 +81,18 @@ export default function SettingsPage() {
                 familyLineId: newElder.familyLineId.trim(),
                 customFare: newElder.customFare ? Number(newElder.customFare) : undefined,
                 monthlyQuota: newElder.monthlyQuota ? Number(newElder.monthlyQuota) : undefined,
+                caseSource: newElder.caseSource,
+                hospital: newElder.hospital,
+                diagnosisDate: newElder.diagnosisDate,
+                dementiaLevel: newElder.dementiaLevel,
+                cdrScore: newElder.cdrScore,
+                cmsScore: newElder.cmsScore,
+                adlScore: newElder.adlScore,
+                iadlScore: newElder.iadlScore,
+                caregiverBurdenScore: newElder.caregiverBurdenScore,
             });
-            setNewElder({ name: '', caseNumber: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: '' });
+            setNewElder({ name: '', caseNumber: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: '',
+                caseSource: '', hospital: '', diagnosisDate: '', dementiaLevel: '', cdrScore: '', cmsScore: '', adlScore: '', iadlScore: '', caregiverBurdenScore: '' });
             alert('新增成功！資料將在 1-2 秒後更新');
             setTimeout(loadElders, 1500);
         } catch (err) {
@@ -159,6 +179,15 @@ export default function SettingsPage() {
             familyLineId: elder.familyLineId || '',
             customFare: elder.customFare ? String(elder.customFare) : '',
             monthlyQuota: elder.monthlyQuota ? String(elder.monthlyQuota) : '',
+            caseSource: elder.caseSource || '',
+            hospital: elder.hospital || '',
+            diagnosisDate: elder.diagnosisDate || '',
+            dementiaLevel: elder.dementiaLevel || '',
+            cdrScore: elder.cdrScore || '',
+            cmsScore: elder.cmsScore || '',
+            adlScore: elder.adlScore || '',
+            iadlScore: elder.iadlScore || '',
+            caregiverBurdenScore: elder.caregiverBurdenScore || '',
         });
     };
 
@@ -186,6 +215,15 @@ export default function SettingsPage() {
                 familyLineId: editingElder.familyLineId.trim(),
                 customFare: editingElder.customFare ? Number(editingElder.customFare) : undefined,
                 monthlyQuota: editingElder.monthlyQuota ? Number(editingElder.monthlyQuota) : undefined,
+                caseSource: editingElder.caseSource,
+                hospital: editingElder.hospital,
+                diagnosisDate: editingElder.diagnosisDate,
+                dementiaLevel: editingElder.dementiaLevel,
+                cdrScore: editingElder.cdrScore,
+                cmsScore: editingElder.cmsScore,
+                adlScore: editingElder.adlScore,
+                iadlScore: editingElder.iadlScore,
+                caregiverBurdenScore: editingElder.caregiverBurdenScore,
             });
             alert('更新成功！');
             setEditingElder(null);
@@ -298,6 +336,74 @@ export default function SettingsPage() {
                             <p className="text-xs text-gray-400 mt-0.5">CMS2=$3,006 / CMS3=$4,638 / CMS4=$5,574</p>
                         </div>
                     </div>
+                    {/* 評估資料 */}
+                    <div className="border-t border-gray-200 pt-3 mt-3">
+                        <p className="text-sm font-semibold text-gray-600 mb-2">📋 評估資料</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">個案來源</label>
+                                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    placeholder="例：醫院轉介" value={newElder.caseSource}
+                                    onChange={(e) => setNewElder({ ...newElder, caseSource: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">確診醫院</label>
+                                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    placeholder="例：羅東博愛醫院" value={newElder.hospital}
+                                    onChange={(e) => setNewElder({ ...newElder, hospital: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">診斷書日期</label>
+                                <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    value={newElder.diagnosisDate}
+                                    onChange={(e) => setNewElder({ ...newElder, diagnosisDate: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">失智程度</label>
+                                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    value={newElder.dementiaLevel}
+                                    onChange={(e) => setNewElder({ ...newElder, dementiaLevel: e.target.value })}>
+                                    <option value="">未填</option>
+                                    <option value="極輕度">極輕度</option>
+                                    <option value="輕度">輕度</option>
+                                    <option value="中度">中度</option>
+                                    <option value="重度">重度</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">CDR</label>
+                                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    placeholder="0.5/1/2/3" value={newElder.cdrScore}
+                                    onChange={(e) => setNewElder({ ...newElder, cdrScore: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">CMS</label>
+                                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    placeholder="1~8" value={newElder.cmsScore}
+                                    onChange={(e) => setNewElder({ ...newElder, cmsScore: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">ADL</label>
+                                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    placeholder="0~100" value={newElder.adlScore}
+                                    onChange={(e) => setNewElder({ ...newElder, adlScore: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">IADL</label>
+                                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    placeholder="0~24" value={newElder.iadlScore}
+                                    onChange={(e) => setNewElder({ ...newElder, iadlScore: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">照顧者負荷</label>
+                                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    placeholder="分數" value={newElder.caregiverBurdenScore}
+                                    onChange={(e) => setNewElder({ ...newElder, caregiverBurdenScore: e.target.value })} />
+                            </div>
+                        </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="sm:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">家屬 LINE ID</label>
@@ -383,6 +489,7 @@ export default function SettingsPage() {
                                         <th className="px-3 py-3 font-medium">車資</th>
                                         <th className="px-3 py-3 font-medium">月額度</th>
                                         <th className="px-3 py-3 font-medium">家屬 LINE</th>
+                                        <th className="px-3 py-3 font-medium">評估資料</th>
                                         <th className="px-3 py-3 font-medium">備註</th>
                                         <th className="px-3 py-3 font-medium">操作</th>
                                     </tr>
@@ -455,6 +562,17 @@ export default function SettingsPage() {
                                                         <span className="text-gray-400">-</span>
                                                     )}
                                                 </td>
+                                                <td className="px-3 py-3">
+                                                    {(elder.cdrScore || elder.cmsScore || elder.dementiaLevel) ? (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {elder.dementiaLevel && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">{elder.dementiaLevel}</span>}
+                                                            {elder.cdrScore && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">CDR:{elder.cdrScore}</span>}
+                                                            {elder.cmsScore && <span className="text-[10px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded">CMS:{elder.cmsScore}</span>}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-400">-</span>
+                                                    )}
+                                                </td>
                                                 <td className="px-3 py-3 text-gray-500 text-sm max-w-[120px] truncate">{elder.notes || '-'}</td>
                                                 <td className="px-3 py-3">
                                                     <div className="flex gap-2">
@@ -486,7 +604,7 @@ export default function SettingsPage() {
             {/* 編輯長者 Modal */}
             {editingElder && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-lg w-full shadow-xl">
+                    <div className="bg-white rounded-xl max-w-2xl w-full shadow-xl max-h-[90vh] overflow-y-auto">
                         <div className="bg-blue-500 text-white px-4 py-3 rounded-t-xl flex justify-between items-center">
                             <h3 className="font-semibold">✏️ 編輯長者資料</h3>
                             <button className="text-white/80 hover:text-white" onClick={() => setEditingElder(null)}>
@@ -599,6 +717,76 @@ export default function SettingsPage() {
                                     value={editingElder.notes}
                                     onChange={(e) => setEditingElder({ ...editingElder, notes: e.target.value })}
                                 />
+                            </div>
+                            {/* 評估資料 */}
+                            <div className="border-t border-gray-200 pt-3">
+                                <p className="text-sm font-semibold text-gray-600 mb-2">📋 評估資料</p>
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">個案來源</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                            placeholder="例：醫院轉介" value={editingElder.caseSource}
+                                            onChange={(e) => setEditingElder({ ...editingElder, caseSource: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">確診醫院</label>
+                                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                            placeholder="例：羅東博愛醫院" value={editingElder.hospital}
+                                            onChange={(e) => setEditingElder({ ...editingElder, hospital: e.target.value })} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">診斷書日期</label>
+                                        <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                            value={editingElder.diagnosisDate}
+                                            onChange={(e) => setEditingElder({ ...editingElder, diagnosisDate: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">失智程度</label>
+                                        <select className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                            value={editingElder.dementiaLevel}
+                                            onChange={(e) => setEditingElder({ ...editingElder, dementiaLevel: e.target.value })}>
+                                            <option value="">未填</option>
+                                            <option value="極輕度">極輕度</option>
+                                            <option value="輕度">輕度</option>
+                                            <option value="中度">中度</option>
+                                            <option value="重度">重度</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-5 gap-2">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">CDR</label>
+                                        <input type="text" className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                                            placeholder="0.5/1/2/3" value={editingElder.cdrScore}
+                                            onChange={(e) => setEditingElder({ ...editingElder, cdrScore: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">CMS</label>
+                                        <input type="text" className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                                            placeholder="1~8" value={editingElder.cmsScore}
+                                            onChange={(e) => setEditingElder({ ...editingElder, cmsScore: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">ADL</label>
+                                        <input type="text" className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                                            placeholder="0~100" value={editingElder.adlScore}
+                                            onChange={(e) => setEditingElder({ ...editingElder, adlScore: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">IADL</label>
+                                        <input type="text" className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                                            placeholder="0~24" value={editingElder.iadlScore}
+                                            onChange={(e) => setEditingElder({ ...editingElder, iadlScore: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">照顧者負荷</label>
+                                        <input type="text" className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                                            placeholder="分數" value={editingElder.caregiverBurdenScore}
+                                            onChange={(e) => setEditingElder({ ...editingElder, caregiverBurdenScore: e.target.value })} />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div className="px-4 py-3 bg-gray-50 rounded-b-xl flex justify-end gap-3">

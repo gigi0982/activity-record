@@ -101,7 +101,7 @@ function CollapsibleSection({
                     ▼
                 </span>
             </button>
-            <div className={`transition-all duration-300 ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+            <div className={`transition-all duration-300 ${isOpen ? 'max-h-none opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                 {children}
             </div>
         </div>
@@ -118,7 +118,6 @@ export default function QuickEntryPage() {
     const todayStr = dateParam || today.toISOString().split('T')[0];
     const selectedDate = new Date(todayStr + 'T00:00:00');
     const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-    const isAM = dateParam ? true : today.getHours() < 12;
     const isViewingPast = dateParam && dateParam !== today.toISOString().split('T')[0];
 
     const [elders, setElders] = useState<ElderWithStatus[]>([]);
@@ -126,6 +125,9 @@ export default function QuickEntryPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [selectedShift, setSelectedShift] = useState<'am' | 'pm'>(
+        dateParam ? 'am' : (today.getHours() < 12 ? 'am' : 'pm')
+    );
 
     // 月額度追蹤
     const [quotaUsage, setQuotaUsage] = useState<Record<string, { totalUsed: number; quota: number; remaining: number; percentage: number; tripCount?: number; maxTrips?: number; remainingTrips?: number; overQuotaTrips?: number; overQuotaAmount?: number; isOverQuota?: boolean }>>({});
@@ -535,7 +537,7 @@ export default function QuickEntryPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-4 pb-44">
+        <div className="max-w-4xl mx-auto px-4 pb-60">
             {/* 成功訊息橫幅 */}
             {showSuccess && (
                 <div
@@ -550,9 +552,34 @@ export default function QuickEntryPage() {
             {/* 標題區 */}
             <div className="text-center my-4 p-4 bg-blue-600 text-white rounded-xl">
                 <div className="text-sm opacity-90">
-                    {todayStr} ({weekDays[selectedDate.getDay()]}) {isViewingPast ? '📅 查看模式' : (isAM ? '上午' : '下午')}
+                    {todayStr} ({weekDays[selectedDate.getDay()]}){' '}
+                    {isViewingPast ? '📅 查看模式' : (selectedShift === 'am' ? '上午' : '下午')}
                 </div>
                 <div className="text-xl font-bold mt-1">今日活動</div>
+                {!isViewingPast && (
+                    <div className="flex justify-center gap-2 mt-2">
+                        <button
+                            onClick={() => setSelectedShift('am')}
+                            className={`px-4 py-1.5 rounded-full text-sm font-bold transition ${
+                                selectedShift === 'am'
+                                    ? 'bg-white text-blue-600'
+                                    : 'bg-white/20 text-white/80 hover:bg-white/30'
+                            }`}
+                        >
+                            ☀️ 上午班
+                        </button>
+                        <button
+                            onClick={() => setSelectedShift('pm')}
+                            className={`px-4 py-1.5 rounded-full text-sm font-bold transition ${
+                                selectedShift === 'pm'
+                                    ? 'bg-white text-blue-600'
+                                    : 'bg-white/20 text-white/80 hover:bg-white/30'
+                            }`}
+                        >
+                            🌙 下午班
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* 快速全選區 */}
@@ -616,8 +643,8 @@ export default function QuickEntryPage() {
                     <div className="text-amber-700">外餐</div>
                 </div>
 
-                {/* 長者列表 */}
-                <div className="bg-white">
+                {/* 長者列表（加上內部捲動，避免下方長者被卡住看不到） */}
+                <div className="bg-white max-h-[60vh] overflow-y-auto">
                     {elders.map((elder, index) => {
                         const isAttended = elder.attendedAM || elder.attendedPM;
                         return (

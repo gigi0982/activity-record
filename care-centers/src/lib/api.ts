@@ -100,8 +100,10 @@ export const elderApi = {
     },
 
     // 刪除長者
-    async deleteElder(name: string): Promise<{ success: boolean; message: string }> {
-        return api.getFromGoogleScript('deleteElder', { name });
+    async deleteElder(name: string, siteId?: string): Promise<{ success: boolean; message: string }> {
+        const params: Record<string, string> = { name };
+        if (siteId) params.siteId = siteId;
+        return api.getFromGoogleScript('deleteElder', params);
     },
 
     // 更新長者

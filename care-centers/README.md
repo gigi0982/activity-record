@@ -14,6 +14,18 @@ If you want to override the default Google Apps Script URL (server-side only):
 GOOGLE_SCRIPT_URL=https://script.google.com/macros/s/...
 ```
 
+Authentication provider (default is GAS):
+
+```bash
+AUTH_PROVIDER=gas
+# or
+AUTH_PROVIDER=supabase
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+When using Supabase auth, run `supabase-auth-schema.sql` in Supabase SQL Editor first.
+
 First, run the development server:
 
 ```bash

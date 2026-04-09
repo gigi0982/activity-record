@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { elderApi, Elder } from '@/lib/api';
 import { getLevelInfo, getIdentityInfo } from '@/lib/utils';
 
@@ -30,6 +31,8 @@ interface EditingElder extends NewElder {
 }
 
 export default function SettingsPage() {
+    const params = useParams();
+    const siteId = params.site as string;
     const [elders, setElders] = useState<Elder[]>([]);
     const [newElder, setNewElder] = useState<NewElder>({
         name: '', caseNumber: '', level: 'A', identityType: 'normal', subsidyType: 'subsidy', notes: '', familyLineId: '', customFare: '', monthlyQuota: '',
@@ -49,7 +52,7 @@ export default function SettingsPage() {
     const loadElders = async () => {
         setIsLoadingElders(true);
         try {
-            const data = await elderApi.getElders();
+            const data = await elderApi.getElders(siteId);
             setElders(data || []);
         } catch (err) {
             console.error('載入長者失敗:', err);
@@ -105,7 +108,7 @@ export default function SettingsPage() {
     const handleDeleteElder = async (name: string) => {
         if (!window.confirm(`確定要刪除「${name}」嗎？\n\n此操作無法復原！`)) return;
         try {
-            const result = await elderApi.deleteElder(name);
+            const result = await elderApi.deleteElder(name, siteId);
             if (result.success) {
                 alert(`已成功刪除「${name}」！`);
                 loadElders();
@@ -150,7 +153,7 @@ export default function SettingsPage() {
 
         for (const name of names) {
             try {
-                const result = await elderApi.deleteElder(name);
+                const result = await elderApi.deleteElder(name, siteId);
                 if (result.success) {
                     successCount++;
                 } else {

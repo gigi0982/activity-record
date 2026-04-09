@@ -160,7 +160,7 @@ function doPost(e) {
         break;
       
       default:
-        result = addActivity(data);
+        result = { success: false, message: '未知的操作: ' + action };
     }
     
     return ContentService.createTextOutput(JSON.stringify(result))
@@ -516,13 +516,38 @@ function doGet(e) {
         return ContentService.createTextOutput(JSON.stringify(getFinanceAutoFill(autoFillSiteId, autoFillMonth)))
           .setMimeType(ContentService.MimeType.JSON);
       
+      // ========== 管理工具 ==========
+      case 'checkElderSheets':
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          report: checkAllSitesElderSheets()
+        })).setMimeType(ContentService.MimeType.JSON);
+      
+      case 'initElderSheets':
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          report: initAllSitesElderSheets()
+        })).setMimeType(ContentService.MimeType.JSON);
+      
+      case 'fixElderData':
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          report: fixAllSitesElderData()
+        })).setMimeType(ContentService.MimeType.JSON);
+      
+      case 'fixDongguashanLevels':
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          report: fixDongguashanLevelsFromSanxing()
+        })).setMimeType(ContentService.MimeType.JSON);
+      
       default:
         return ContentService.createTextOutput(JSON.stringify({
           status: 'OK',
           message: '活動管理系統 API 運作中',
-          version: '4.5',
+          version: '5.0',
           timestamp: new Date().toISOString(),
-          availableActions: ['getActivities', 'getTopics', 'getPurposes', 'getSchedule', 'getElders', 'deleteElder', 'getUsers', 'getSettings', 'getQuickEntry', 'getQuickEntrySummary']
+          availableActions: ['getActivities', 'getTopics', 'getPurposes', 'getSchedule', 'getElders', 'deleteElder', 'getUsers', 'getSettings', 'getQuickEntry', 'getQuickEntrySummary', 'checkElderSheets', 'initElderSheets', 'fixElderData', 'fixDongguashanLevels']
         })).setMimeType(ContentService.MimeType.JSON);
     }
   } catch (error) {
@@ -4069,4 +4094,406 @@ function getFinanceAutoFill(siteId, month) {
       BD03_RATE: BD03_RATE
     }
   };
+}
+
+// ===================================================
+// 據點長者名單初始化與檢查工具
+// ===================================================
+
+/**
+ * 檢查所有據點的長者名單工作表狀態
+ * 在 Google Apps Script 編輯器中手動執行此函式
+ * 查看結果：檢視 → 記錄（或按 Ctrl+Enter 後查看執行記錄）
+ */
+function checkAllSitesElderSheets() {
+  var results = [];
+  var siteNames = {
+    'sanxing': '三星',
+    'luodong': '羅東',
+    'dongguashan': '冬瓜山',
+    'jiaoxi': '礁溪'
+  };
+  
+  for (var siteId in SITE_SHEETS) {
+    var siteName = siteNames[siteId] || siteId;
+    try {
+      var ss = SpreadsheetApp.openById(SITE_SHEETS[siteId]);
+      var sheet = ss.getSheetByName('長者名單');
+      
+      if (!sheet) {
+        results.push('❌ ' + siteName + '(' + siteId + '): 無「長者名單」工作表');
+      } else {
+        var data = sheet.getDataRange().getValues();
+        var elderCount = Math.max(0, data.length - 1); // 扣掉標題列
+        if (elderCount === 0) {
+          results.push('⚠️ ' + siteName + '(' + siteId + '): 有工作表但無長者資料（0 人）');
+        } else {
+          results.push('✅ ' + siteName + '(' + siteId + '): ' + elderCount + ' 位長者已建檔');
+        }
+        
+        // 檢查標題列是否包含新欄位
+        if (data.length > 0) {
+          var headers = data[0];
+          var hasNewFields = false;
+          for (var h = 0; h < headers.length; h++) {
+            if (headers[h] === '個案編號') { hasNewFields = true; break; }
+          }
+          if (!hasNewFields) {
+            results.push('   ⚠️ 標題列缺少「個案編號」等評估欄位，需要更新');
+          } else {
+            results.push('   ✅ 標題列已包含完整評估欄位');
+          }
+        }
+      }
+    } catch (err) {
+      results.push('❌ ' + siteName + '(' + siteId + '): 無法開啟試算表 - ' + err.message);
+    }
+  }
+  
+  var report = '\n========== 據點長者名單檢查報告 ==========\n' + results.join('\n') + '\n============================================';
+  console.log(report);
+  Logger.log(report);
+  return report;
+}
+
+/**
+ * 為所有據點初始化「長者名單」工作表
+ * 如果工作表已存在且有資料，會檢查並補齊標題列中缺少的欄位
+ * 如果工作表不存在，會自動建立含完整標題的空工作表
+ */
+function initAllSitesElderSheets() {
+  var FULL_HEADERS = ['姓名', '分級', '分級說明', '建議評分', '身份類別', '身份說明', '車資', '補助類型', '備註', '家屬LINE', '自訂車資', '月額度上限', '建立時間', '個案編號', '個案來源', '確診醫院', '診斷書日期', '失智程度', 'CDR分數', 'CMS分數', 'ADL', 'IADL', '照顧者負荷量'];
+  
+  var siteNames = {
+    'sanxing': '三星',
+    'luodong': '羅東',
+    'dongguashan': '冬瓜山',
+    'jiaoxi': '礁溪'
+  };
+  
+  var results = [];
+  
+  for (var siteId in SITE_SHEETS) {
+    var siteName = siteNames[siteId] || siteId;
+    try {
+      var ss = SpreadsheetApp.openById(SITE_SHEETS[siteId]);
+      var sheet = ss.getSheetByName('長者名單');
+      
+      if (!sheet) {
+        // 建立新的長者名單工作表
+        sheet = ss.insertSheet('長者名單');
+        sheet.appendRow(FULL_HEADERS);
+        // 設定標題列格式
+        var headerRange = sheet.getRange(1, 1, 1, FULL_HEADERS.length);
+        headerRange.setFontWeight('bold');
+        headerRange.setBackground('#4285F4');
+        headerRange.setFontColor('#FFFFFF');
+        sheet.setFrozenRows(1);
+        // 設定欄寬
+        sheet.setColumnWidth(1, 80);  // 姓名
+        sheet.setColumnWidth(2, 50);  // 分級
+        sheet.setColumnWidth(5, 80);  // 身份類別
+        sheet.setColumnWidth(13, 140); // 建立時間
+        sheet.setColumnWidth(14, 100); // 個案編號
+        results.push('✅ ' + siteName + ': 已建立「長者名單」工作表（含完整 ' + FULL_HEADERS.length + ' 個欄位）');
+      } else {
+        // 工作表已存在，檢查標題列
+        var data = sheet.getDataRange().getValues();
+        if (data.length === 0) {
+          // 空工作表，加入標題列
+          sheet.appendRow(FULL_HEADERS);
+          var headerRange = sheet.getRange(1, 1, 1, FULL_HEADERS.length);
+          headerRange.setFontWeight('bold');
+          headerRange.setBackground('#4285F4');
+          headerRange.setFontColor('#FFFFFF');
+          sheet.setFrozenRows(1);
+          results.push('✅ ' + siteName + ': 已補上標題列（含完整 ' + FULL_HEADERS.length + ' 個欄位）');
+        } else {
+          var currentHeaders = data[0];
+          var elderCount = data.length - 1;
+          
+          // 檢查是否缺少新欄位
+          var missingHeaders = [];
+          for (var i = 0; i < FULL_HEADERS.length; i++) {
+            var found = false;
+            for (var j = 0; j < currentHeaders.length; j++) {
+              if (currentHeaders[j] === FULL_HEADERS[i]) {
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              missingHeaders.push(FULL_HEADERS[i]);
+            }
+          }
+          
+          if (missingHeaders.length > 0) {
+            // 在現有工作表的右側補上缺少的欄位標題
+            var startCol = currentHeaders.length + 1;
+            for (var m = 0; m < missingHeaders.length; m++) {
+              sheet.getRange(1, startCol + m).setValue(missingHeaders[m]).setFontWeight('bold').setBackground('#4285F4').setFontColor('#FFFFFF');
+            }
+            results.push('✅ ' + siteName + ': 已補上 ' + missingHeaders.length + ' 個缺少的欄位（' + missingHeaders.join(', ') + '），現有 ' + elderCount + ' 位長者');
+          } else {
+            results.push('✅ ' + siteName + ': 已有完整標題列 + ' + elderCount + ' 位長者，無需修改');
+          }
+        }
+      }
+    } catch (err) {
+      results.push('❌ ' + siteName + ': 初始化失敗 - ' + err.message);
+    }
+  }
+  
+  var report = '\n========== 據點長者名單初始化結果 ==========\n' + results.join('\n') + '\n=============================================';
+  console.log(report);
+  Logger.log(report);
+  return report;
+}
+
+/**
+ * 修復所有據點長者名單中的資料錯誤
+ * 在 Google Apps Script 編輯器中手動執行此函式
+ * 
+ * 修復項目：
+ * 1. 分級說明(col3)和建議評分(col4)對調
+ * 2. 補助類型(col8)異常值 → 改為 'subsidy'
+ * 3. 車資(col7)非數值 → 改為 18
+ * 4. 自訂車資(col11)是日期 → 改為 0
+ * 5. 月額度上限(col12)是日期(建立時間錯位) → 搬到建立時間(col13)，月額度設為 0
+ */
+function fixAllSitesElderData() {
+  var siteNames = {
+    'sanxing': '三星',
+    'luodong': '羅東',
+    'dongguashan': '冬瓜山',
+    'jiaoxi': '礁溪'
+  };
+  
+  var LEVEL_DESCS = ['輕度', '中度', '重度'];
+  var SCORE_RANGES = ['4-5分', '3-4分', '2-3分'];
+  
+  var results = [];
+  
+  for (var siteId in SITE_SHEETS) {
+    var siteName = siteNames[siteId] || siteId;
+    try {
+      var ss = SpreadsheetApp.openById(SITE_SHEETS[siteId]);
+      var sheet = ss.getSheetByName('長者名單');
+      
+      if (!sheet) {
+        results.push('⏭️ ' + siteName + ': 無長者名單工作表，跳過');
+        continue;
+      }
+      
+      var data = sheet.getDataRange().getValues();
+      if (data.length <= 1) {
+        results.push('⏭️ ' + siteName + ': 無長者資料，跳過');
+        continue;
+      }
+      
+      var fixCount = 0;
+      
+      for (var i = 1; i < data.length; i++) {
+        var row = data[i];
+        var rowNum = i + 1;
+        var name = row[0];
+        if (!name) continue;
+        
+        var changed = false;
+        
+        // 修復1: 分級說明(col3, idx2) 和 建議評分(col4, idx3) 對調
+        var levelDesc = row[2] ? String(row[2]) : '';
+        var scoreRange = row[3] ? String(row[3]) : '';
+        if (SCORE_RANGES.indexOf(levelDesc) >= 0 && LEVEL_DESCS.indexOf(scoreRange) >= 0) {
+          // 確實對調了，修正回來
+          sheet.getRange(rowNum, 3).setValue(scoreRange);  // 分級說明 = 原來的 scoreRange
+          sheet.getRange(rowNum, 4).setValue(levelDesc);   // 建議評分 = 原來的 levelDesc
+          changed = true;
+        }
+        
+        // 修復2: 補助類型(col8, idx7) 異常值
+        var subsidyType = row[7] ? String(row[7]) : '';
+        if (subsidyType !== 'subsidy' && subsidyType !== 'self' && subsidyType !== '') {
+          // 根據身份類別推斷補助類型
+          var identityType = row[4] ? String(row[4]) : 'normal';
+          // 一般戶可能是 subsidy 或 self，無法確定，預設 subsidy
+          sheet.getRange(rowNum, 8).setValue('subsidy');
+          changed = true;
+        }
+        
+        // 修復3: 車資(col7, idx6) 非數值
+        var fare = row[6];
+        if (fare !== '' && fare !== null && fare !== undefined) {
+          if (typeof fare === 'string' && isNaN(Number(fare))) {
+            sheet.getRange(rowNum, 7).setValue(18);
+            changed = true;
+          }
+        }
+        
+        // 修復4: 自訂車資(col11, idx10) 是日期
+        var customFare = row[10] ? String(row[10]) : '';
+        if (customFare.indexOf('T') >= 0 || (customFare.indexOf('-') >= 0 && customFare.length > 5)) {
+          sheet.getRange(rowNum, 11).setValue(0);
+          changed = true;
+        }
+        
+        // 修復5: 月額度上限(col12, idx11) 是日期 → 搬到建立時間(col13)
+        var monthlyQuota = row[11] ? String(row[11]) : '';
+        if (monthlyQuota.indexOf('T') >= 0) {
+          // 這其實是建立時間
+          var currentCreatedAt = row[12] ? String(row[12]) : '';
+          if (!currentCreatedAt || currentCreatedAt === '0') {
+            // 建立時間為空，把錯位的值搬過去
+            sheet.getRange(rowNum, 13).setValue(monthlyQuota);
+          }
+          sheet.getRange(rowNum, 12).setValue(0);
+          changed = true;
+        }
+        
+        if (changed) {
+          fixCount++;
+        }
+      }
+      
+      results.push('✅ ' + siteName + ': 修復了 ' + fixCount + ' / ' + (data.length - 1) + ' 位長者的資料');
+      
+    } catch (err) {
+      results.push('❌ ' + siteName + ': 修復失敗 - ' + err.message);
+    }
+  }
+  
+  var report = '\n========== 長者資料修復結果 ==========\n' + results.join('\n') + '\n=======================================';
+  console.log(report);
+  Logger.log(report);
+  return report;
+}
+
+/**
+ * 補齊冬瓜山據點長者的分級資料（從三星據點比對）
+ * 冬瓜山的長者大部分也在三星，可以從三星的分級資料對照補上
+ */
+function fixDongguashanLevelsFromSanxing() {
+  var sanxingSS = SpreadsheetApp.openById(SITE_SHEETS['sanxing']);
+  var sanxingSheet = sanxingSS.getSheetByName('長者名單');
+  
+  if (!sanxingSheet) {
+    console.log('找不到三星長者名單');
+    return '找不到三星長者名單';
+  }
+  
+  // 建立三星長者資料對照表
+  var sanxingData = sanxingSheet.getDataRange().getValues();
+  var sanxingMap = {};
+  for (var i = 1; i < sanxingData.length; i++) {
+    var name = sanxingData[i][0];
+    if (name) {
+      sanxingMap[name] = {
+        level: sanxingData[i][1] || 'A',
+        levelDesc: sanxingData[i][2] || '',
+        scoreRange: sanxingData[i][3] || '',
+        identityType: sanxingData[i][4] || 'normal',
+        identityDesc: sanxingData[i][5] || '',
+        fare: sanxingData[i][6],
+        subsidyType: sanxingData[i][7] || 'subsidy'
+      };
+    }
+  }
+  
+  var dgsSS = SpreadsheetApp.openById(SITE_SHEETS['dongguashan']);
+  var dgsSheet = dgsSS.getSheetByName('長者名單');
+  
+  if (!dgsSheet) {
+    console.log('找不到冬瓜山長者名單');
+    return '找不到冬瓜山長者名單';
+  }
+  
+  var dgsData = dgsSheet.getDataRange().getValues();
+  var fixCount = 0;
+  var notFound = [];
+  
+  for (var j = 1; j < dgsData.length; j++) {
+    var elderName = dgsData[j][0];
+    if (!elderName) continue;
+    
+    var ref = sanxingMap[elderName];
+    if (ref) {
+      var rowNum = j + 1;
+      var currentLevelDesc = dgsData[j][2] ? String(dgsData[j][2]) : '';
+      
+      // 只在缺少分級說明時才補上
+      if (!currentLevelDesc) {
+        // 注意：三星的資料可能也有對調問題，這裡先修正
+        var LEVEL_DESCS = ['輕度', '中度', '重度'];
+        var SCORE_RANGES = ['4-5分', '3-4分', '2-3分'];
+        var refLevelDesc = String(ref.levelDesc);
+        var refScoreRange = String(ref.scoreRange);
+        
+        // 如果三星資料也是對調的，先還原
+        if (SCORE_RANGES.indexOf(refLevelDesc) >= 0 && LEVEL_DESCS.indexOf(refScoreRange) >= 0) {
+          var tmp = refLevelDesc;
+          refLevelDesc = refScoreRange;
+          refScoreRange = tmp;
+        }
+        
+        dgsSheet.getRange(rowNum, 2).setValue(ref.level);
+        dgsSheet.getRange(rowNum, 3).setValue(refLevelDesc);
+        dgsSheet.getRange(rowNum, 4).setValue(refScoreRange);
+        dgsSheet.getRange(rowNum, 5).setValue(ref.identityType);
+        dgsSheet.getRange(rowNum, 6).setValue(ref.identityDesc || '一般戶');
+        
+        fixCount++;
+      }
+    } else {
+      notFound.push(elderName);
+    }
+  }
+  
+  var report = '冬瓜山分級資料補齊結果: 修復 ' + fixCount + ' 人';
+  if (notFound.length > 0) {
+    report += '\n在三星找不到的長者(需手動填寫): ' + notFound.join(', ');
+  }
+  console.log(report);
+  Logger.log(report);
+  return report;
+}
+
+/**
+ * 一次性執行：建立 superAdmin 帳號
+ * 在 Apps Script 編輯器中選擇此函式 → 點擊 ▶ 執行
+ * 會建立 gigi0982 和 gigi08982 兩個帳號（密碼都是 kimi0915）
+ */
+function createSuperAdminAccount() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('用戶帳號');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('用戶帳號');
+    sheet.appendRow(['帳號', '密碼', '角色', '據點', '建立時間', '上次登入']);
+  }
+  
+  var accounts = ['gigi0982', 'gigi08982'];
+  var data = sheet.getDataRange().getValues();
+  var results = [];
+  
+  for (var a = 0; a < accounts.length; a++) {
+    var acct = accounts[a];
+    var exists = false;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === acct) {
+        exists = true;
+        break;
+      }
+    }
+    if (!exists) {
+      sheet.appendRow([acct, 'kimi0915', 'superAdmin', 'all', new Date().toISOString(), '']);
+      results.push('✅ 已建立帳號: ' + acct);
+    } else {
+      results.push('⏭️ 帳號已存在: ' + acct);
+    }
+  }
+  
+  var msg = results.join('\n');
+  console.log(msg);
+  Logger.log(msg);
+  return msg;
 }

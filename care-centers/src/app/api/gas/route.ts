@@ -127,7 +127,10 @@ export async function GET(request: Request) {
 
     try {
         const queryString = url.searchParams.toString();
-        const response = await fetch(`${getGoogleScriptUrl()}?${queryString}`, { cache: 'no-store' });
+        // SITE_ACTIONS 走各據點自己的 GAS（未來在 sites.ts 設定 scriptUrl）
+        // 其他後台共用功能（例如 getUsers）則走預設的中央 GAS
+        const baseUrl = SITE_ACTIONS.has(action) ? getGoogleScriptUrl(targetSiteId || undefined) : getGoogleScriptUrl();
+        const response = await fetch(`${baseUrl}?${queryString}`, { cache: 'no-store' });
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });
     } catch {
@@ -180,7 +183,9 @@ export async function POST(request: Request) {
     }
 
     try {
-        const response = await fetch(getGoogleScriptUrl(), {
+        // SITE_ACTIONS 走各據點自己的 GAS，其餘走中央 GAS
+        const baseUrl = SITE_ACTIONS.has(action) ? getGoogleScriptUrl(targetSiteId || undefined) : getGoogleScriptUrl();
+        const response = await fetch(baseUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(body),

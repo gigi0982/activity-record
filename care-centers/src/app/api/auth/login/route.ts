@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGoogleScriptUrl } from '@/lib/gas';
+import { authenticateUser } from '@/lib/auth/loginProvider';
 import { createSessionToken, getAuthSecret, SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/session';
 
 export const runtime = 'nodejs';
@@ -20,14 +20,8 @@ export async function POST(request: Request) {
     }
 
     try {
-        const response = await fetch(getGoogleScriptUrl(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'login', name, password }),
-        });
-
-        const result = await response.json();
-        if (!result?.success || !result?.user) {
+        const result = await authenticateUser(name, password);
+        if (!result.success || !result.user) {
             return NextResponse.json(
                 { success: false, message: result?.message || '帳號或密碼錯誤' },
                 { status: 401 }
